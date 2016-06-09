@@ -54,6 +54,49 @@ func main() {
 			}
 		}
 
+		wanteds := fuzzparser.WantedFuzzersFromAST(parsedFile)
+
+		log.Println("And I want to generate the following fuzzers:")
+		for _, wanted := range wanteds {
+			log.Println("\t", wanted.InterfaceName)
+			if wanted.ReturnsValue {
+				log.Println("\t\tReference implementation: & ", wanted.Reference)
+			} else {
+				log.Println("\t\tReference implementation:", wanted.Reference)
+			}
+			log.Println("\t\tBefore-Compares:", wanted.BeforeCompares)
+			log.Println("\t\tComparison Functions:", wanted.Comparison)
+			log.Println("\t\tGenerator Functions:", wanted.Generator)
+		}
+
+		// Reconcile the wanteds with the interfaces.
+		var fuzzers []Fuzzer
+
+		for _, wanted := range wanteds {
+			var found bool
+
+			for _, iface := range interfaces {
+				if wanted.InterfaceName == iface.Name {
+					fuzzer := Fuzzer{Interface: iface, Wanted: wanted}
+
+					// Check we don't already have a fuzzer for this
+					// interface.
+					for _, existingFuzzer := range fuzzers {
+						if existingFuzzer.Interface.Name == iface.Name {
+							return cli.NewExitError(fmt.Sprintf("Already have a fuzzer for '%s'.", wanted.InterfaceName), 1)
+						}
+					}
+
+					fuzzers = append(fuzzers, fuzzer)
+					found = true
+				}
+			}
+
+			if !found {
+				return cli.NewExitError(fmt.Sprintf("Couldn't find interface '%s' in this file.", wanted.InterfaceName), 1)
+			}
+		}
+
 		return nil
 	}
 
