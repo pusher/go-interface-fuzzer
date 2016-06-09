@@ -38,13 +38,19 @@ func main() {
 
 		log.Println("I am going to fuzz", filename, "and I have successfully parsed it!")
 
-		interfaces := fuzzparser.ParseInterfacesFromAST(parsedFile)
+		interfaces := fuzzparser.InterfacesFromAST(parsedFile)
 
 		log.Println("Found the following interfaces:")
 		for _, iface := range interfaces {
 			log.Println("\t", iface.Name, "with methods:")
 			for _, field := range iface.Methods {
 				log.Println("\t\t", field.Name)
+				for _, ty := range field.Parameters {
+					log.Println("\t\t\ttakes a", ty.ToString())
+				}
+				for _, ty := range field.Returns {
+					log.Println("\t\t\tgives a", ty.ToString())
+				}
 			}
 		}
 
