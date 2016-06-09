@@ -54,15 +54,19 @@ type. It is passed the list of all generated values so far, in order
 to tune the generation as the system evolves, if desired. If no
 generator is specified for a type, quickcheck is used.
 
-@generator: GenerateAnID([]ID) ID
+@generator: GenerateAnID([]ID, rand *rand.Rand) ID
 
 This will generate the following functions:
 
- - `FuzzStore(makeTestStore (func(int) Store), rand *rand.Rand, uint min, uint max) error`
+ - `FuzzStoreWithReference(makeReferenceStore (func(int) Store), makeTestStore (func(int) Store), rand *rand.Rand, uint min, uint max) error`
 
-   Create a new ModelStore and store-under-test, apply a
+   Create a new reference store and test store, apply a
    randomly-generated list of actions between the given length bounds,
    and bail out on inconsistency.
+
+ - `FuzzStore(makeTestStore (func(int) Store), rand *rand.Rand, uint min, uint max) error`
+
+   Call `FuzzStoreWithReference` with the ModelStore as the reference one.
 
 - `FuzzTestStore(makeTestStore (func(int) Store), t *testing.T)`
 
