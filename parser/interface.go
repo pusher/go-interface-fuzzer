@@ -2,7 +2,7 @@
 //
 // For all of the InterfaceFrom* functions, if the parameter is not an
 // interface type, the default interface is returned and the error is
-// non-nil. Similarly for the MethodFrom* functions.
+// non-nil. Similarly for the FunctionFrom* functions.
 
 package parser
 
@@ -19,13 +19,14 @@ type Interface struct {
 	Name string
 
 	// The methods in the interface.
-	Methods []Method
+	Functions []Function
 }
 
-// A Method is a representation of a member function of an interface
-// type.
-type Method struct {
-	// The name of the method.
+// A Function is a representation of a function name and type, which
+// may be a member of an interface or not. All Functions in an
+// Interface will be members.
+type Function struct {
+	// The name of the function.
 	Name string
 
 	// The parameter types
@@ -207,7 +208,7 @@ func InterfaceFromTypeSpec(tyspec *ast.TypeSpec) (Interface, error) {
 	switch ifacety := tyspec.Type.(type) {
 	case *ast.InterfaceType:
 		name := tyspec.Name.Name
-		var methods []Method
+		var functions []Function
 		if ifacety.Methods != nil {
 			for _, field := range ifacety.Methods.List {
 				if field.Names == nil || len(field.Names) < 1 {
@@ -223,48 +224,48 @@ func InterfaceFromTypeSpec(tyspec *ast.TypeSpec) (Interface, error) {
 
 				switch fundecl := obj.Decl.(type) {
 				case *ast.Field:
-					method, err := MethodFromField(field.Names[0].Name, fundecl)
+					function, err := FunctionFromField(field.Names[0].Name, fundecl)
 
 					if err == nil {
-						methods = append(methods, method)
+						functions = append(functions, function)
 					}
 				}
 			}
 		}
-		return Interface{Name: name, Methods: methods}, nil
+		return Interface{Name: name, Functions: functions}, nil
 	}
 
 	return Interface{}, errors.New("TypeSpec is not an interface type.")
 }
 
-// MethodFromField tries to extract a method from an *ast.Field.
-func MethodFromField(name string, field *ast.Field) (Method, error) {
+// FunctionFromField tries to extract a function from an *ast.Field.
+func FunctionFromField(name string, field *ast.Field) (Function, error) {
 	if field == nil {
-		return Method{}, errors.New("Field is nil.")
+		return Function{}, errors.New("Field is nil.")
 	}
 	if field.Type == nil {
-		return Method{}, errors.New("Field type is nil.")
+		return Function{}, errors.New("Field type is nil.")
 	}
 
 	switch functype := field.Type.(type) {
 	case *ast.FuncType:
-		method, err := MethodFromFuncType(name, functype)
-		return method, err
+		function, err := FunctionFromFuncType(name, functype)
+		return function, err
 	}
 
-	return Method{}, errors.New("Type is not a function type.")
+	return Function{}, errors.New("Type is not a function type.")
 }
 
-// MethodFromFuncType tries to extract a method from an *ast.FuncType.
-func MethodFromFuncType(name string, funty *ast.FuncType) (Method, error) {
+// FunctionFromFuncType tries to extract a function from an *ast.FuncType.
+func FunctionFromFuncType(name string, funty *ast.FuncType) (Function, error) {
 	if funty == nil {
-		return Method{}, errors.New("FuncType is nil.")
+		return Function{}, errors.New("FuncType is nil.")
 	}
 
 	parameters := typeList(funty.Params)
 	returns := typeList(funty.Results)
 
-	return Method{Name: name, Parameters: parameters, Returns: returns}, nil
+	return Function{Name: name, Parameters: parameters, Returns: returns}, nil
 }
 
 // Get the list of type names from an *ast.FieldList. Names are not

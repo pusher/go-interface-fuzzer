@@ -42,8 +42,8 @@ func main() {
 
 		log.Println("Found the following interfaces:")
 		for _, iface := range interfaces {
-			log.Println("\t", iface.Name, "with methods:")
-			for _, field := range iface.Methods {
+			log.Println("\t", iface.Name, "with functions:")
+			for _, field := range iface.Functions {
 				log.Println("\t\t", field.Name)
 				for _, ty := range field.Parameters {
 					log.Println("\t\t\ttakes a", ty.ToString())
