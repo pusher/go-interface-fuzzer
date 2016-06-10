@@ -26,35 +26,79 @@ next to the interface, it can be anywhere in the source file.
 
 @fuzz interface: Store
 
+**Syntax:**
+
+  ~~~
+  InterfaceName
+  ~~~
+
+
 `@known correct` is the type that is, well, known to be correct; given
 as a function to produce a new value of that type.
 
 The generated fuzzing function will expect a function argument with
 the same parameters to create a new value of the type under test.
 
-@known correct: NewModelStore(int) ModelStore
+@known correct: & NewModelStore int
+
+**Syntax:**
+
+  ~~~
+  [&] FunctionName [ArgType1 ... ArgTypeN]
+  ~~~
+
+  The presence of a `&` means that this returns a value rather than a
+  pointer, and so a reference must be made to it.
+
 
 `@before compare` specifies a function to apply to a value before
 comparing it.
 
-The `type.func()` syntax means that this is a method to call on the
-value, otherwise the syntax `func(type)` can be used to denote a
-"normal" function. There can be no other parameters.
+@before compare: ID.ToUint uint
 
-@before compare: ID.ToUint() uint
+**Syntax:**
+
+  ~~~
+  (Type.FunctionName | FunctionName Type) ReturnType1 [ReturnType2 ... ReturnTypeN]
+  ~~~
+
+  The `Type.FunctionName` syntax means that this is a method on that
+  type, the `FunctionName Type` syntax means that the value is passed
+  in as the sole argument.
+
 
 `@comparison` specifies a function to use to compare two values. If
 not specified the reflection package is used. The syntax `func(type,
 type)` can also be used, where both types must be the same.
 
-@comparison: *MessageIterator.CompareWith(*MessageIterator) bool
+@comparison: *MessageIterator.CompareWith
+
+**Syntax:**
+
+  ~~~
+  (Type.FunctionName | FunctionName Type)
+  ~~~
+
+  In the method form, the target of the comparison is passed as the
+  sole parameter; in the function form both are passed as parameters.
+
 
 `@generator` specifies a function to generate a value of the required
 type. It is passed the list of all generated values so far, in order
 to tune the generation as the system evolves, if desired. If no
 generator is specified for a type, quickcheck is used.
 
-@generator: GenerateAnID([]ID, rand *rand.Rand) ID
+@generator: GenerateAnID ID
+
+**Syntax:**
+
+  ~~~
+  FunctionName Type
+  ~~~
+
+  The function is passed two paremeters, the array of all values of
+  that type generated so far, and a `*rand.Rand` value.
+
 
 This will generate the following functions:
 
