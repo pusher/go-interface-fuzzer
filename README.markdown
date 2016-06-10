@@ -84,13 +84,12 @@ report an error otherwise.
 
 This will generate the following functions:
 
- - `FuzzStoreWith(reference Store, test Store, rand *rand.Rand, min uint, max uint) error`
+ - `FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error`
 
    Create a new reference store and test store, apply a
-   randomly-generated list of actions between the given length bounds,
-   and bail out on inconsistency.
+   randomly-generated list of actions, and bail out on inconsistency.
 
- - `FuzzStore(makeTest (func(int) Store), rand *rand.Rand, min uint, max uint) error`
+ - `FuzzStore(makeTest (func(int) Store), rand *rand.Rand, maxops uint) error`
 
    Call `FuzzStoreWithReference` with the ModelStore as the reference one.
 

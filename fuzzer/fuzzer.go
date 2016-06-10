@@ -27,7 +27,7 @@ type Fuzzer struct {
 // ~~~
 //
 // This test case will call `FuzzStore` (see
-// CodegenWithDefaultReference) with a min size of 50 and max of 100.
+// CodegenWithDefaultReference) with a max number of 100 operations.
 func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 	// Format parameters:
 	//
@@ -36,7 +36,7 @@ func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 	template := `func FuzzTest%[1]s(makeTest (func(%[2]s) %[1]s), t *testing.T) {
 	rand := rand.New(rand.NewSource(0))
 
-	err := Fuzz%[1]s(makeTest, rand, 50, 100)
+	err := Fuzz%[1]s(makeTest, rand, 100)
 
 	if err != nil {
 		t.Error(err)
@@ -55,7 +55,7 @@ func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 // this:
 //
 // ~~~go
-// FuzzStore(makeTest (func(int) Store), rand *rand.Rand, min uint, max uint) error
+// FuzzStore(makeTest (func(int) Store), rand *rand.Rand, maxops uint) error
 // ~~~
 //
 // This function will call `FuzzStoreWith` (see CodegenWithReference)
@@ -68,10 +68,10 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 	// - reference generator name
 	// - "&" if the reference generator needs that
 	// - code to declare arguments, set random values, and call functions
-	template := `func Fuzz%[1]s(makeTest (func (%[2]s) %[1]s), rand *rand.Rand, min uint, max uint) error {
+	template := `func Fuzz%[1]s(makeTest (func (%[2]s) %[1]s), rand *rand.Rand, max uint) error {
 %[5]s
 
-	return Fuzz%[1]sWith(%[4]sretA0, retB0, rand, min, max)
+	return Fuzz%[1]sWith(%[4]sretA0, retB0, rand, max)
 }`
 
 	var ampersand string
@@ -104,7 +104,7 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 // looks like this:
 //
 // ~~~go
-// FuzzStoreWith(reference Store, test Store, rand *rand.Rand, min uint, max uint) error
+// FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error
 // ~~~
 //
 // In any found discrepancies, the return value from the reference
@@ -116,8 +116,8 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 	// - interface name
 	// - number of methods in interface
 	// - code to perform methods
-	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, min uint, max uint) error {
-	actionsToPerform := rand.Intn(max - min) + min
+	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {
+	actionsToPerform := maxops
 
 	for actionsToPerform > 0 {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
