@@ -297,19 +297,19 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 }`
 
 	tyname := ty.ToString()
+	comparison := fmt.Sprintf("reflect.DeepEqual(%s, %s)", expectedvar, actualvar)
 
 	// If there's a provided comparison, use that.
 	tycomp, ok := fuzzer.Wanted.Comparison[tyname]
 	if ok {
-		comparison := fmt.Sprintf("%s.%s(%s)", expectedvar, tycomp.Name, actualvar)
+		comparison = fmt.Sprintf("%s.%s(%s)", expectedvar, tycomp.Name, actualvar)
+
 		if tycomp.IsFunction {
 			comparison = fmt.Sprintf("%s(%s, %s)", tycomp.Name, expectedvar, actualvar)
 		}
-
-		return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
 	}
 
-	return "", fmt.Errorf("I don't know how to compare a %s", tyname)
+	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
 }
 
 // Indent every line by the given number of tabs.
