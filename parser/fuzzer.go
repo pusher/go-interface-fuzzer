@@ -306,6 +306,7 @@ func parseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 		// It's a function
 		funcOrMeth.Name = nName
 		funcOrMeth.Type, rest, err = parseType(nRest)
+		funcOrMeth.IsFunction = true
 	} else {
 		err = fmt.Errorf("'%s' does not appear to be a method or function", line)
 	}
