@@ -307,6 +307,9 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 		if tycomp.IsFunction {
 			comparison = fmt.Sprintf("%s(%s, %s)", tycomp.Name, expectedvar, actualvar)
 		}
+	} else if tyname == "error" {
+		// Special case for errors: just compare nilness.
+		comparison = fmt.Sprintf("((%s == nil) == (%s == nil))", expectedvar, actualvar)
 	}
 
 	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
