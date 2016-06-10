@@ -96,6 +96,30 @@ func main() {
 			}
 		}
 
+		// Codegen
+		codeGenErr := func(fuzzer Fuzzer, err error) *cli.ExitError {
+			msg := fmt.Sprintf("Error occurred whilst generating code for '%s': %s.", fuzzer.Interface.Name, err)
+			return cli.NewExitError(msg, 1)
+		}
+
+		for _, fuzzer := range fuzzers {
+			testCase, testCaseErr := CodegenTestCase(fuzzer)
+			withDefaultReference, withDefaultReferenceErr := CodegenWithDefaultReference(fuzzer)
+			withReference, withReferenceErr := CodegenWithReference(fuzzer)
+
+			if testCaseErr != nil {
+				return codeGenErr(fuzzer, testCaseErr)
+			}
+			if withDefaultReferenceErr != nil {
+				return codeGenErr(fuzzer, withDefaultReferenceErr)
+			}
+			if withReferenceErr != nil {
+				return codeGenErr(fuzzer, withReferenceErr)
+			}
+
+			fmt.Printf("%v\n\n%v\n\n%v\n", testCase, withDefaultReference, withReference)
+		}
+
 		return nil
 	}
 

@@ -55,6 +55,10 @@ the same parameters to create a new value of the type under test.
 not specified the reflection package is used. The syntax `func(type,
 type)` can also be used, where both types must be the same.
 
+@comparison: CompareInts       int
+@comparison: CompareErrors     error
+@comparison: CompareIDs        ID
+@comparison: CompareIDMessages []IDMessage
 @comparison: *MessageIterator.CompareWith
 
 **Syntax:**
@@ -68,11 +72,13 @@ type)` can also be used, where both types must be the same.
 
 
 `@generator` specifies a function to generate a value of the required
-type. It is passed the list of all generated values so far, in order
-to tune the generation as the system evolves, if desired. If no
-generator is specified for a type, quickcheck is used.
+type. It is passed a PRNG of type *rand.Rand. If no generator for a
+type is specified, the tool will attempt to produce a default; and
+report an error otherwise.
 
-@generator: GenerateAnID ID
+@generator: GenerateAnInt       int
+@generator: GenerateAnID        ID
+@generator: GenerateAnIDMessage IDMessage
 
 **Syntax:**
 
@@ -86,17 +92,17 @@ generator is specified for a type, quickcheck is used.
 
 This will generate the following functions:
 
- - `FuzzStoreWithReference(makeReferenceStore (func(int) Store), makeTestStore (func(int) Store), rand *rand.Rand, uint min, uint max) error`
+ - `FuzzStoreWith(reference Store, test Store, rand *rand.Rand, min uint, max uint) error`
 
    Create a new reference store and test store, apply a
    randomly-generated list of actions between the given length bounds,
    and bail out on inconsistency.
 
- - `FuzzStore(makeTestStore (func(int) Store), rand *rand.Rand, uint min, uint max) error`
+ - `FuzzStore(makeTest (func(int) Store), rand *rand.Rand, min uint, max uint) error`
 
    Call `FuzzStoreWithReference` with the ModelStore as the reference one.
 
-- `FuzzTestStore(makeTestStore (func(int) Store), t *testing.T)`
+- `FuzzTestStore(makeTest (func(int) Store), t *testing.T)`
 
    A test case parameterised by the store generating function, with a
    default min of 50 and max of 100.
@@ -114,3 +120,9 @@ type Store interface {
 Once you have your special comments, in which only `@fuzz interface`
 and `@known correct` is necessary, run `go-interface-fuzzer` on the
 file and it will spit out the testing functions.
+
+Stupid!
+---
+
+This is currently very stupid! You have to provide functions to
+compare and to generate every type, even builtins! This will be fixed.

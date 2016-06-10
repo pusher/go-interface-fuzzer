@@ -126,6 +126,8 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 					if err != nil {
 						return WantedFuzzer{}, err
 					}
+					retty := BasicType(fuzzer.InterfaceName)
+					fundecl.Returns = []Type{&retty}
 					fuzzer.Reference = fundecl
 					fuzzer.ReturnsValue = returnsValue
 					continue
@@ -138,7 +140,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 					if err != nil {
 						return WantedFuzzer{}, err
 					}
-					fuzzer.Comparison[tyname] = fundecl
+					fuzzer.Comparison[tyname.ToString()] = fundecl
 					continue
 				}
 
@@ -149,7 +151,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 					if err != nil {
 						return WantedFuzzer{}, err
 					}
-					fuzzer.Generator[tyname] = genfunc
+					fuzzer.Generator[tyname.ToString()] = genfunc
 					continue
 				}
 			}
