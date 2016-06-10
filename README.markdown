@@ -51,10 +51,6 @@ the same parameters to create a new value of the type under test.
 not specified the reflection package is used. The syntax `func(type,
 type)` can also be used, where both types must be the same.
 
-@comparison: CompareInts       int
-@comparison: CompareErrors     error
-@comparison: CompareIDs        ID
-@comparison: CompareIDMessages []IDMessage
 @comparison: *MessageIterator.CompareWith
 
 **Syntax:**
@@ -112,8 +108,20 @@ Once you have your special comments, in which only `@fuzz interface`
 and `@known correct` is necessary, run `go-interface-fuzzer` on the
 file and it will spit out the testing functions.
 
-Stupid!
----
+Defaults
+--
 
-This is currently very stupid! You have to provide functions to
-compare and to generate every type, even builtins! This will be fixed.
+The following default **comparison** operations are used if not
+overridden:
+
+| Type            | Comparison                                   |
+|-----------------|----------------------------------------------|
+| `error`         | Equal if both values are `nil` or non-`nil`. |
+| Everything else | `reflect.DeepEqual`                          |
+
+The following default **generator** functions are used if not
+overridden:
+
+| Type       | Generator      |
+|------------|----------------|
+| Everything | **No default** |
