@@ -51,22 +51,6 @@ the same parameters to create a new value of the type under test.
   pointer, and so a reference must be made to it.
 
 
-`@before compare` specifies a function to apply to a value before
-comparing it.
-
-@before compare: ID.ToUint uint
-
-**Syntax:**
-
-  ~~~
-  (Type.FunctionName | FunctionName Type) ReturnType1 [ReturnType2 ... ReturnTypeN]
-  ~~~
-
-  The `Type.FunctionName` syntax means that this is a method on that
-  type, the `FunctionName Type` syntax means that the value is passed
-  in as the sole argument.
-
-
 `@comparison` specifies a function to use to compare two values. If
 not specified the reflection package is used. The syntax `func(type,
 type)` can also be used, where both types must be the same.

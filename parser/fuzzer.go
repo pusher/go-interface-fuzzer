@@ -29,14 +29,12 @@ type WantedFuzzer struct {
 	// pointer.
 	ReturnsValue bool
 
-	// Functions to transform outputs before value.
-	BeforeCompares map[Type]EitherFunctionOrMethod
+	// Comparison functions to use. The keys of this map are
+	// ToString'd Types.
+	Comparison map[string]EitherFunctionOrMethod
 
-	// Comparison functions to use.
-	Comparison map[Type]EitherFunctionOrMethod
-
-	// Generator functions
-	Generator map[Type]string
+	// Generator functions The keys of this map are ToString'd Types.
+	Generator map[string]string
 }
 
 // EitherFunctionOrMethod is either a function or a method. Param and
@@ -94,12 +92,11 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 	comments := group.List
 
 	fuzzer := WantedFuzzer{
-		InterfaceName:  "",
-		Reference:      Function{},
-		ReturnsValue:   false,
-		BeforeCompares: make(map[Type]EitherFunctionOrMethod),
-		Comparison:     make(map[Type]EitherFunctionOrMethod),
-		Generator:      make(map[Type]string),
+		InterfaceName: "",
+		Reference:     Function{},
+		ReturnsValue:  false,
+		Comparison:    make(map[string]EitherFunctionOrMethod),
+		Generator:     make(map[string]string),
 	}
 	fuzzing := false
 
@@ -131,17 +128,6 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 					}
 					fuzzer.Reference = fundecl
 					fuzzer.ReturnsValue = returnsValue
-					continue
-				}
-
-				// "@before compare:"
-				suff, ok = matchPrefix(line, "@before compare:")
-				if ok {
-					tyname, fundecl, err := parseBeforeCompare(suff)
-					if err != nil {
-						return WantedFuzzer{}, err
-					}
-					fuzzer.BeforeCompares[tyname] = fundecl
 					continue
 				}
 
@@ -240,44 +226,6 @@ func parseKnownCorrect(line string) (Function, bool, error) {
 	function.Parameters = args
 
 	return function, returnsValue, nil
-}
-
-// Parse a "@before compare:"
-//
-// SYNTAX: (Type.FunctionName | FunctionName Type) ReturnType1 [ReturnType2 ... ReturnTypeN]
-func parseBeforeCompare(line string) (Type, EitherFunctionOrMethod, error) {
-	var (
-		ty         Type
-		funcOrMeth EitherFunctionOrMethod
-		err        error
-		rest       string
-		returns    []Type
-	)
-
-	funcOrMeth, rest, err = parseFunctionOrMethod(line)
-
-	if err == nil {
-		ty = funcOrMeth.Type
-
-		for rest != "" {
-			var ret Type
-			ret, rest, err = parseType(rest)
-
-			if err != nil {
-				break
-			}
-
-			returns = append(returns, ret)
-		}
-
-		funcOrMeth.Returns = returns
-
-		if len(returns) == 0 {
-			err = fmt.Errorf("Need at least one return type in '%s'", line)
-		}
-	}
-
-	return ty, funcOrMeth, err
 }
 
 // Parse a "@comparison:"

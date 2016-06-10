@@ -64,7 +64,6 @@ func main() {
 			} else {
 				log.Println("\t\tReference implementation:", wanted.Reference)
 			}
-			log.Println("\t\tBefore-Compares:", wanted.BeforeCompares)
 			log.Println("\t\tComparison Functions:", wanted.Comparison)
 			log.Println("\t\tGenerator Functions:", wanted.Generator)
 		}
