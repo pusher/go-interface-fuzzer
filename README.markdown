@@ -16,7 +16,7 @@ tester for. The minimum is just indicating that a fuzz tester should
 be generated for the interface, and how to produce a new value of the
 reference implementation type. All other fields are optional:
 
-~~~go
+```go
 /*
 `@fuzz interface` indicates that this is a special comment for the
 interface fuzzer, and gives the name of the interface to use.
@@ -28,9 +28,7 @@ next to the interface, it can be anywhere in the source file.
 
 **Syntax:**
 
-  ~~~
-  InterfaceName
-  ~~~
+  "InterfaceName"
 
 
 `@known correct` is the type that is, well, known to be correct; given
@@ -43,9 +41,7 @@ the same parameters to create a new value of the type under test.
 
 **Syntax:**
 
-  ~~~
-  [&] FunctionName [ArgType1 ... ArgTypeN]
-  ~~~
+  "[&] FunctionName [ArgType1 ... ArgTypeN]"
 
   The presence of a `&` means that this returns a value rather than a
   pointer, and so a reference must be made to it.
@@ -63,9 +59,7 @@ type)` can also be used, where both types must be the same.
 
 **Syntax:**
 
-  ~~~
-  (Type.FunctionName | FunctionName Type)
-  ~~~
+  "(Type.FunctionName | FunctionName Type)"
 
   In the method form, the target of the comparison is passed as the
   sole parameter; in the function form both are passed as parameters.
@@ -82,9 +76,7 @@ report an error otherwise.
 
 **Syntax:**
 
-  ~~~
-  FunctionName Type
-  ~~~
+  "FunctionName Type"
 
   The function is passed two paremeters, the array of all values of
   that type generated so far, and a `*rand.Rand` value.
@@ -115,7 +107,7 @@ type Store interface {
     AsSlice() []IDMessage
     MessageLimit() int
 }
-~~~
+```
 
 Once you have your special comments, in which only `@fuzz interface`
 and `@known correct` is necessary, run `go-interface-fuzzer` on the
