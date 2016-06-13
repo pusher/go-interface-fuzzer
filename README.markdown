@@ -48,14 +48,13 @@ the same parameters to create a new value of the type under test.
 
 
 `@comparison` specifies a function to use to compare two values. If
-not specified the reflection package is used. The syntax `func(type,
-type)` can also be used, where both types must be the same.
+not specified the reflection package is used.
 
-@comparison: *MessageIterator.CompareWith
+@comparison: *MessageIterator:CompareWith
 
 **Syntax:**
 
-  "(Type.FunctionName | FunctionName Type)"
+  "(Type:FunctionName | FunctionName Type)"
 
   In the method form, the target of the comparison is passed as the
   sole parameter; in the function form both are passed as parameters.
@@ -66,8 +65,10 @@ type. It is passed a PRNG of type *rand.Rand. If no generator for a
 type is specified, the tool will attempt to produce a default; and
 report an error otherwise.
 
-@generator: GenerateAnID        ID
-@generator: GenerateAnIDMessage IDMessage
+@generator: GenerateChannel   model.Channel
+@generator: GenerateID        model.EventID
+@generator: GenerateIDMessage model.IDMessage
+@generator: GenerateParition  model.Partition
 
 **Syntax:**
 

@@ -37,7 +37,8 @@ type Function struct {
 }
 
 // Type is a representation of a Go type. The concrete types are
-// ArrayType, BasicType, ChanType, MapType, and PointerType.
+// ArrayType, BasicType, ChanType, MapType, PointerType, and
+// QualifiedType.
 type Type interface {
 	// Return an unambiguous string rendition of the type.
 	ToString() string
@@ -112,6 +113,25 @@ func (ty *MapType) ToString() string {
 type PointerType struct {
 	// The target type.
 	TargetType Type
+}
+
+// QualifiedTyoe is the type of types with a package name qualfiier.
+type QualifiedType struct {
+	// The package name
+	Package string
+	// The type
+	Type Type
+}
+
+// ToString converts a QualifiedType into a string of the form
+// "package.type".
+func (ty *QualifiedType) ToString() string {
+	if ty == nil {
+		return ""
+	}
+
+	tystr := fmt.Sprintf("%s.%s", ty.Package, ty.Type.ToString())
+	return tystr
 }
 
 // ToString converts a PointerType into a string of the form
@@ -314,6 +334,14 @@ func typeFromTypeExpr(ty ast.Expr) Type {
 		return &ty
 	case *ast.StarExpr:
 		ty := PointerType{TargetType: typeFromTypeExpr(x.X)}
+		return &ty
+	case *ast.SelectorExpr:
+		// x.X is an expression which resolves to the package
+		// name and x.Sel is the "selector", which is the
+		// actual type name.
+		pkg := typeFromTypeExpr(x.X).ToString()
+		innerTy := BasicType(x.Sel.Name)
+		ty := QualifiedType{Package: pkg, Type: &innerTy}
 		return &ty
 	}
 

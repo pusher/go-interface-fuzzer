@@ -247,7 +247,7 @@ func parseKnownCorrect(line string) (Function, bool, error) {
 
 // Parse a "@comparison:"
 //
-// SYNTAX: (Type.FunctionName | FunctionName Type)
+// SYNTAX: (Type:FunctionName | FunctionName Type)
 func parseComparison(line string) (Type, EitherFunctionOrMethod, error) {
 	var (
 		ty         Type
@@ -317,7 +317,7 @@ func parseGeneratorState(line string) (string, error) {
 // Parse a function or a method, returning the remainder of the
 // string, which has leading spaces stripped.
 //
-// SYNTAX: (Type.FunctionName | FunctionName Type)
+// SYNTAX: (Type:FunctionName | FunctionName Type)
 func parseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) {
 	var (
 		funcOrMeth EitherFunctionOrMethod
@@ -334,7 +334,7 @@ func parseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 	tyType, tyRest, tyErr := parseType(line)
 	nName, nRest := parseName(line)
 
-	if tyErr == nil && tyRest[0] == '.' {
+	if tyErr == nil && tyRest[0] == ':' {
 		// It's a method.
 		funcOrMeth.Type = tyType
 		funcOrMeth.Name, rest = parseName(tyRest[1:])
@@ -353,7 +353,7 @@ func parseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 // Parse a type. This is very stupid and doesn't make much effort to
 // be absolutely correct.
 //
-// SYNTAX: []Type | chan  Type | map[Type]Type | *Type | (Type) | Name
+// SYNTAX: []Type | chan Type | map[Type]Type | *Type | (Type) | Name.Type | Name
 func parseType(s string) (Type, string, error) {
 	// Array type
 	suff, ok := matchPrefix(s, "[]")
@@ -399,16 +399,26 @@ func parseType(s string) (Type, string, error) {
 		return parseUnaryType(tycon, suff, s)
 	}
 
-	// Type in parentheses
+	// Type in (posibly 0) parentheses
 	noParens, parenOk := matchDelims(s, "(", ")")
 	if parenOk {
-		// Basic type
+		// Basic type OR qualified type
 		if noParens == s {
 			pref, suff := parseName(s)
-			basicTy := BasicType(pref)
-			rest := strings.TrimLeftFunc(suff, unicode.IsSpace)
+			suff = strings.TrimLeftFunc(suff, unicode.IsSpace)
 
-			return &basicTy, rest, nil
+			if len(suff) > 0 && suff[0] == '.' {
+				pkg := pref
+				tyname, suff2 := parseName(suff[1:])
+				ty := BasicType(tyname)
+				rest := strings.TrimLeftFunc(suff2, unicode.IsSpace)
+				qty := QualifiedType{Package: pkg, Type: &ty}
+				return &qty, rest, nil
+			} else {
+				basicTy := BasicType(pref)
+				rest := suff
+				return &basicTy, rest, nil
+			}
 		}
 
 		return parseType(noParens)
