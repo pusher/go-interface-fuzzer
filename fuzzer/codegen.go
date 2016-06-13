@@ -374,10 +374,11 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
 }
 
-// Indent every line by the given number of tabs.
+// Indent every non-blank line by the given number of tabs.
 func indentLines(s string, indent string) string {
 	lines := strings.Split(s, "\n")
-	return indent + strings.Join(lines, "\n"+indent)
+	indented := indent + strings.Join(lines, "\n"+indent)
+	return strings.Replace(indented, indent+"\n", "\n", -1)
 }
 
 // Produce unique names for function arguments. These do not clash

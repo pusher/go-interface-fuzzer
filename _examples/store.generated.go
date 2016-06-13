@@ -12,9 +12,9 @@ func FuzzStore(makeTest (func (int) Store), rand *rand.Rand, max uint) error {
 	var (
 		argInt int
 	)
-	
+
 	argInt = rand.Int()
-	
+
 	expectedStore := makeReferenceStore(argInt)
 	actualStore := makeTest(argInt)
 
@@ -39,12 +39,12 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			var (
 				argModelIDMessage model.IDMessage
 			)
-			
+
 			argModelIDMessage, state = generateIDMessage(rand, state)
-			
+
 			expectedError := reference.Put(argModelIDMessage)
 			actualError := test.Put(argModelIDMessage)
-		
+
 			// And check for discrepancies.
 			if !((expectedError == nil) == (actualError == nil)) {
 				return fmt.Errorf("Inconsistent result in Put\nexpected: %v\nactual:   %v", expectedError, actualError)
@@ -55,13 +55,13 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 				argModelID model.ID
 				argModelChannel model.Channel
 			)
-			
+
 			argModelID, state = generateID(rand, state)
 			argModelChannel = generateChannel(rand)
-			
+
 			expectedModelID, expectedModelIDMessage := reference.EntriesSince(argModelID, argModelChannel)
 			actualModelID, actualModelIDMessage := test.EntriesSince(argModelID, argModelChannel)
-		
+
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
 				return fmt.Errorf("Inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
@@ -75,13 +75,13 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 				argModelID model.ID
 				argModelChannel model.Channel
 			)
-			
+
 			argModelID, state = generateID(rand, state)
 			argModelChannel = generateChannel(rand)
-			
+
 			expectedModelID, expectedMessageIterator := reference.EntriesSinceIter(argModelID, argModelChannel)
 			actualModelID, actualMessageIterator := test.EntriesSinceIter(argModelID, argModelChannel)
-		
+
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
 				return fmt.Errorf("Inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
@@ -93,7 +93,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			// Call the method on both implementations
 			expectedModelID := reference.MostRecentID()
 			actualModelID := test.MostRecentID()
-		
+
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
 				return fmt.Errorf("Inconsistent result in MostRecentID\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
@@ -102,7 +102,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			// Call the method on both implementations
 			expectedModelIDMessage := reference.AsSlice()
 			actualModelIDMessage := test.AsSlice()
-		
+
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
 				return fmt.Errorf("Inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
@@ -111,7 +111,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			// Call the method on both implementations
 			expectedInt := reference.MessageLimit()
 			actualInt := test.MessageLimit()
-		
+
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedInt, actualInt) {
 				return fmt.Errorf("Inconsistent result in MessageLimit\nexpected: %v\nactual:   %v", expectedInt, actualInt)
