@@ -66,7 +66,6 @@ type. It is passed a PRNG of type *rand.Rand. If no generator for a
 type is specified, the tool will attempt to produce a default; and
 report an error otherwise.
 
-@generator: GenerateAnInt       int
 @generator: GenerateAnID        ID
 @generator: GenerateAnIDMessage IDMessage
 
@@ -122,6 +121,23 @@ overridden:
 The following default **generator** functions are used if not
 overridden:
 
-| Type       | Generator      |
-|------------|----------------|
-| Everything | **No default** |
+| Type            | Generator                                                           |
+|-----------------|---------------------------------------------------------------------|
+| `bool`          | `rand.Intn(2) == 0`                                                 |
+| `byte`          | `byte(rand.Uint32())`                                               |
+| `complex64`     | `complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))` |
+| `complex128`    | `complex(rand.NormFloat64(), rand.NormFloat64())`                   |
+| `float32`       | `float32(rand.NormFloat64())``                                      |
+| `float64`       | `rand.NormFloat64()`                                                |
+| `int`           | `rand.Int()`                                                        |
+| `int8`          | `int8(rand.Int())`                                                  |
+| `int16`         | `int16(rand.Int())`                                                 |
+| `int32`         | `rand.Int31()`                                                      |
+| `int64`         | `rand.Int63()`                                                      |
+| `rune`          | `rune(rand.Int31())`                                                |
+| `uint`          | `uint(rand.Uint32())`                                               |
+| `uint8`         | `uint8(rand.Uint32())`                                              |
+| `uint16`        | `uint16(rand.Uint32())`                                             |
+| `uint32`        | `rand.Uint32()`                                                     |
+| `uint64`        | `(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())`             |
+| Everything else | **No default**                                                      |

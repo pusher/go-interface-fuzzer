@@ -279,6 +279,50 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (strin
 		return fmt.Sprintf("%s = %s(rand)", varname, tygen), nil
 	}
 
+	// If it's a type we can handle, supply a default generator.
+	tygen = ""
+
+	switch tyname {
+	case "bool":
+		tygen = "rand.Intn(2) == 0"
+	case "byte":
+		tygen = "byte(rand.Uint32())"
+	case "complex64":
+		tygen = "complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))"
+	case "complex128":
+		tygen = "complex(rand.NormFloat64(), rand.NormFloat64())"
+	case "float32":
+		tygen = "float32(rand.NormFloat64())"
+	case "float64":
+		tygen = "rand.NormFloat64()"
+	case "int":
+		tygen = "rand.Int()"
+	case "int8":
+		tygen = "int8(rand.Int())"
+	case "int16":
+		tygen = "int16(rand.Int())"
+	case "int32":
+		tygen = "rand.Int31()"
+	case "int64":
+		tygen = "rand.Int63()"
+	case "rune":
+		tygen = "rune(rand.Int31())"
+	case "uint":
+		tygen = "uint(rand.Uint32())"
+	case "uint8":
+		tygen = "uint8(rand.Uint32())"
+	case "uint16":
+		tygen = "uint16(rand.Uint32())"
+	case "uint32":
+		tygen = "rand.Uint32()"
+	case "uint64":
+		tygen = "(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())"
+	}
+
+	if tygen != "" {
+		return fmt.Sprintf("%s = %s", varname, tygen), nil
+	}
+
 	// Otherwise cry because generic programming in Go is hard :(
 	return "", fmt.Errorf("I don't know how to generate a %s", tyname)
 }
