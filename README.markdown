@@ -81,16 +81,16 @@ report an error otherwise.
 
 `@generator state` specifies that custom generator functions (those
 specified by a `@generator` line) take a state parameter, and gives
-the name of the initial state (which is assumed to be a value). If a
-generator state is present, it is passed as the SECOND argument
-(before the *rand.Rand value); and the generator returns a new state
-as the SECOND result.
+the value of the initial state (which is any legal expression, copied
+verbatim into the generated code). If a generator state is present, it
+is passed as the SECOND argument (after the *rand.Rand value); and
+the generator returns a new state as the SECOND result.
 
 @generator state: InitialGeneratorState
 
 **Syntax:**
 
-  "ValueName"
+  "Expression"
 
 
 This will generate the following functions:

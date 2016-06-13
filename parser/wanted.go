@@ -312,23 +312,16 @@ func parseGenerator(line string) (Type, string, bool, error) {
 
 // Parse a "@generator state:"
 //
-// SYNTAX: Name
+// This does absolutely NO checking whatsoever beyond presence
+// checking!
+//
+// SYNTAX: Expression
 func parseGeneratorState(line string) (string, error) {
-	var (
-		name string
-		err  error
-		rest string
-	)
-
-	name, rest = parseName(line)
-
-	if name == "" {
-		err = fmt.Errorf("Expected a name in '%s'", line)
-	} else if rest != "" {
-		err = fmt.Errorf("Unexpected left over input in '%s' (got '%s')", line, rest)
+	if line == "" {
+		return "", fmt.Errorf("Expected an initial state")
 	}
 
-	return name, err
+	return line, nil
 }
 
 // Parse a function or a method, returning the remainder of the
