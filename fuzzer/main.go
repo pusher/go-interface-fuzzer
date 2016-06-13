@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
-	"log"
 	"os"
 
 	"github.com/urfave/cli"
@@ -36,37 +35,9 @@ func main() {
 			return cli.NewExitError("Could not parse file.", 1)
 		}
 
-		log.Println("I am going to fuzz", filename, "and I have successfully parsed it!")
-
 		interfaces := fuzzparser.InterfacesFromAST(parsedFile)
 
-		log.Println("Found the following interfaces:")
-		for _, iface := range interfaces {
-			log.Println("\t", iface.Name, "with functions:")
-			for _, field := range iface.Functions {
-				log.Println("\t\t", field.Name)
-				for _, ty := range field.Parameters {
-					log.Println("\t\t\ttakes a", ty.ToString())
-				}
-				for _, ty := range field.Returns {
-					log.Println("\t\t\tgives a", ty.ToString())
-				}
-			}
-		}
-
 		wanteds := fuzzparser.WantedFuzzersFromAST(parsedFile)
-
-		log.Println("And I want to generate the following fuzzers:")
-		for _, wanted := range wanteds {
-			log.Println("\t", wanted.InterfaceName)
-			if wanted.ReturnsValue {
-				log.Println("\t\tReference implementation: & ", wanted.Reference)
-			} else {
-				log.Println("\t\tReference implementation:", wanted.Reference)
-			}
-			log.Println("\t\tComparison Functions:", wanted.Comparison)
-			log.Println("\t\tGenerator Functions:", wanted.Generator)
-		}
 
 		// Reconcile the wanteds with the interfaces.
 		var fuzzers []Fuzzer
@@ -117,7 +88,10 @@ func main() {
 				return codeGenErr(fuzzer, withReferenceErr)
 			}
 
-			fmt.Printf("%v\n\n%v\n\n%v\n", testCase, withDefaultReference, withReference)
+			fmt.Printf("// %s\n\n", fuzzer.Interface.Name)
+			fmt.Printf("%s\n\n", testCase)
+			fmt.Printf("%s\n\n", withDefaultReference)
+			fmt.Printf("%s\n", withReference)
 		}
 
 		return nil

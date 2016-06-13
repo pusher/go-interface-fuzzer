@@ -1,3 +1,5 @@
+// Store
+
 func FuzzTestStore(makeTest (func(int) Store), t *testing.T) {
 	rand := rand.New(rand.NewSource(0))
 
