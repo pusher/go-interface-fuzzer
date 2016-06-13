@@ -105,7 +105,7 @@ This will generate the following functions:
 - `FuzzTestStore(makeTest (func(int) Store), t *testing.T)`
 
    A test case parameterised by the store generating function, with a
-   default min of 50 and max of 100.
+   default maxops of 100.
 */
 type Store interface {
     Put(IDMessage) error
@@ -141,7 +141,7 @@ overridden:
 | `byte`          | `byte(rand.Uint32())`                                               |
 | `complex64`     | `complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))` |
 | `complex128`    | `complex(rand.NormFloat64(), rand.NormFloat64())`                   |
-| `float32`       | `float32(rand.NormFloat64())``                                      |
+| `float32`       | `float32(rand.NormFloat64())`                                       |
 | `float64`       | `rand.NormFloat64()`                                                |
 | `int`           | `rand.Int()`                                                        |
 | `int8`          | `int8(rand.Int())`                                                  |
