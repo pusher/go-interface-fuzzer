@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"strings"
 
 	"github.com/urfave/cli"
 
@@ -37,7 +38,16 @@ func main() {
 
 		interfaces := fuzzparser.InterfacesFromAST(parsedFile)
 
-		wanteds := fuzzparser.WantedFuzzersFromAST(parsedFile)
+		wanteds, errs := fuzzparser.WantedFuzzersFromAST(parsedFile)
+
+		// Print errors
+		if len(errs) > 0 {
+			var errstrs []string
+			for _, err := range errs {
+				errstrs = append(errstrs, err.Error())
+			}
+			return cli.NewExitError("Found errors while extracting interface definitions:\n\t- "+strings.Join(errstrs, "\n\t- "), 1)
+		}
 
 		// Reconcile the wanteds with the interfaces.
 		var fuzzers []Fuzzer

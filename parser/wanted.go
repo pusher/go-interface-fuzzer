@@ -68,28 +68,30 @@ type EitherFunctionOrMethod struct {
 
 // WantedFuzzersFromAST extracts all wanted fuzzers from comments in
 // the AST of a file.
-func WantedFuzzersFromAST(theAST *ast.File) []WantedFuzzer {
+func WantedFuzzersFromAST(theAST *ast.File) (wanteds []WantedFuzzer, errs []error) {
 	if theAST == nil {
-		return nil
+		return nil, nil
 	}
 
-	var wanteds []WantedFuzzer
-
 	if theAST.Doc != nil {
-		wanted, err := WantedFuzzerFromCommentGroup(theAST.Doc)
+		wanted, err, logErr := WantedFuzzerFromCommentGroup(theAST.Doc)
 		if err == nil {
 			wanteds = append(wanteds, wanted)
+		} else if logErr {
+			errs = append(errs, err)
 		}
 	}
 
 	for _, group := range theAST.Comments {
-		wanted, err := WantedFuzzerFromCommentGroup(group)
+		wanted, err, logErr := WantedFuzzerFromCommentGroup(group)
 		if err == nil {
 			wanteds = append(wanteds, wanted)
+		} else if logErr {
+			errs = append(errs, err)
 		}
 	}
 
-	return wanteds
+	return wanteds, errs
 }
 
 // WantedFuzzerFromCommentGroup tries to extract a wanted fuzzer
@@ -97,9 +99,9 @@ func WantedFuzzersFromAST(theAST *ast.File) []WantedFuzzer {
 // wanted fuzzer may occur in a comment group, and the first special
 // comment must be the "@fuzz interface:" line; special comments in a
 // group before this are ignored.
-func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error) {
+func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error, bool) {
 	if group == nil {
-		return WantedFuzzer{}, errors.New("CommentGroup is nil.")
+		return WantedFuzzer{}, errors.New("CommentGroup is nil."), false
 	}
 
 	comments := group.List
@@ -127,7 +129,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				if ok {
 					iface, err := parseFuzzInterface(suff)
 					if err != nil {
-						return WantedFuzzer{}, err
+						return WantedFuzzer{}, err, true
 					}
 					fuzzer.InterfaceName = iface
 					fuzzing = true
@@ -138,7 +140,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				if ok {
 					fundecl, returnsValue, err := parseKnownCorrect(suff)
 					if err != nil {
-						return WantedFuzzer{}, err
+						return WantedFuzzer{}, err, true
 					}
 					retty := BasicType(fuzzer.InterfaceName)
 					fundecl.Returns = []Type{&retty}
@@ -152,7 +154,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				if ok {
 					tyname, fundecl, err := parseComparison(suff)
 					if err != nil {
-						return WantedFuzzer{}, err
+						return WantedFuzzer{}, err, true
 					}
 					fuzzer.Comparison[tyname.ToString()] = fundecl
 					continue
@@ -163,7 +165,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				if ok {
 					tyname, genfunc, stateful, err := parseGenerator(suff)
 					if err != nil {
-						return WantedFuzzer{}, err
+						return WantedFuzzer{}, err, true
 					}
 					fuzzer.Generator[tyname.ToString()] = Generator{IsStateful: stateful, Name: genfunc}
 					continue
@@ -174,7 +176,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				if ok {
 					state, err := parseGeneratorState(suff)
 					if err != nil {
-						return WantedFuzzer{}, err
+						return WantedFuzzer{}, err, true
 					}
 					fuzzer.GeneratorState = state
 					continue
@@ -184,9 +186,9 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 	}
 
 	if fuzzing {
-		return fuzzer, nil
+		return fuzzer, nil, false
 	}
-	return WantedFuzzer{}, errors.New("No fuzzer found in group.")
+	return WantedFuzzer{}, errors.New("No fuzzer found in group."), false
 }
 
 // Parse a "@fuzz interface:"
