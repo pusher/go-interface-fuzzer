@@ -10,13 +10,13 @@ func FuzzTestStore(makeTest (func(int) Store), t *testing.T) {
 
 func FuzzStore(makeTest (func (int) Store), rand *rand.Rand, max uint) error {
 	var (
-		arg0 int
+		argInt int
 	)
 	
-	arg0 = rand.Int()
+	argInt = rand.Int()
 	
-	reta0 := makeReferenceStore(arg0)
-	retb0 := makeTest(arg0)
+	retStoreA := makeReferenceStore(argInt)
+	retStoreB := makeTest(argInt)
 
 	return FuzzStoreWith(&reta0, retb0, rand, max)
 }
@@ -37,13 +37,13 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 0:
 			// Call the method on both implementations
 			var (
-				arg0 model.IDMessage
+				argModelIDMessage model.IDMessage
 			)
 			
-			arg0, state = generateIDMessage(rand, state)
+			argModelIDMessage, state = generateIDMessage(rand, state)
 			
-			reta0 := reference.Put(arg0)
-			retb0 := test.Put(arg0)
+			retErrorA := reference.Put(argModelIDMessage)
+			retErrorB := test.Put(argModelIDMessage)
 		
 			// And check for discrepancies.
 			if !((reta0 == nil) == (retb0 == nil)) {
@@ -52,15 +52,15 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 1:
 			// Call the method on both implementations
 			var (
-				arg0 model.ID
-				arg1 model.Channel
+				argModelID model.ID
+				argModelChannel model.Channel
 			)
 			
-			arg0, state = generateID(rand, state)
-			arg1 = generateChannel(rand)
+			argModelID, state = generateID(rand, state)
+			argModelChannel = generateChannel(rand)
 			
-			reta0, reta1 := reference.EntriesSince(arg0, arg1)
-			retb0, retb1 := test.EntriesSince(arg0, arg1)
+			retModelIDA, retModelIDMessageA := reference.EntriesSince(argModelID, argModelChannel)
+			retModelIDB, retModelIDMessageB := test.EntriesSince(argModelID, argModelChannel)
 		
 			// And check for discrepancies.
 			if !reflect.DeepEqual(reta0, retb0) {
@@ -72,15 +72,15 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 2:
 			// Call the method on both implementations
 			var (
-				arg0 model.ID
-				arg1 model.Channel
+				argModelID model.ID
+				argModelChannel model.Channel
 			)
 			
-			arg0, state = generateID(rand, state)
-			arg1 = generateChannel(rand)
+			argModelID, state = generateID(rand, state)
+			argModelChannel = generateChannel(rand)
 			
-			reta0, reta1 := reference.EntriesSinceIter(arg0, arg1)
-			retb0, retb1 := test.EntriesSinceIter(arg0, arg1)
+			retModelIDA, retMessageIteratorA := reference.EntriesSinceIter(argModelID, argModelChannel)
+			retModelIDB, retMessageIteratorB := test.EntriesSinceIter(argModelID, argModelChannel)
 		
 			// And check for discrepancies.
 			if !reflect.DeepEqual(reta0, retb0) {
@@ -91,8 +91,8 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			}
 		case 3:
 			// Call the method on both implementations
-			reta0 := reference.MostRecentID()
-			retb0 := test.MostRecentID()
+			retModelIDA := reference.MostRecentID()
+			retModelIDB := test.MostRecentID()
 		
 			// And check for discrepancies.
 			if !reflect.DeepEqual(reta0, retb0) {
@@ -100,8 +100,8 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			}
 		case 4:
 			// Call the method on both implementations
-			reta0 := reference.AsSlice()
-			retb0 := test.AsSlice()
+			retModelIDMessageA := reference.AsSlice()
+			retModelIDMessageB := test.AsSlice()
 		
 			// And check for discrepancies.
 			if !reflect.DeepEqual(reta0, retb0) {
@@ -109,8 +109,8 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			}
 		case 5:
 			// Call the method on both implementations
-			reta0 := reference.MessageLimit()
-			retb0 := test.MessageLimit()
+			retIntA := reference.MessageLimit()
+			retIntB := test.MessageLimit()
 		
 			// And check for discrepancies.
 			if !reflect.DeepEqual(reta0, retb0) {

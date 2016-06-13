@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	fuzzparser "barrucadu/go-interface-fuzzer/parser"
 )
@@ -237,8 +238,18 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 		retsb []string
 	)
 
+	var priorArgs []string
 	for i, ty := range function.Parameters {
-		arg := "arg" + strconv.Itoa(i)
+		// Generate a name for this variable based on the type.
+		arg := typeNameToVarName("arg", ty)
+		for _, prior := range priorArgs {
+			if arg == prior {
+				arg = arg + strconv.Itoa(i)
+				break
+			}
+		}
+		priorArgs = append(priorArgs, arg)
+
 		decls = append(decls, arg+" "+ty.ToString())
 		args = append(args, arg)
 		gen, err := makeTypeGenerator(fuzzer, arg, ty)
@@ -248,9 +259,20 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 		gens = append(gens, gen)
 	}
 
-	for i := range function.Returns {
-		retsa = append(retsa, "reta"+strconv.Itoa(i))
-		retsb = append(retsb, "retb"+strconv.Itoa(i))
+	var priorRets []string
+	for i, ty := range function.Returns {
+		// Generate a name for this variable based on the type.
+		ret := typeNameToVarName("ret", ty)
+		for _, prior := range priorRets {
+			if ret == prior {
+				ret = ret + strconv.Itoa(i)
+				break
+			}
+		}
+		priorRets = append(priorRets, ret)
+
+		retsa = append(retsa, ret+"A")
+		retsb = append(retsb, ret+"B")
 	}
 
 	body := fmt.Sprintf(
@@ -377,4 +399,30 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 func indentLines(s string, indent string) string {
 	lines := strings.Split(s, "\n")
 	return indent + strings.Join(lines, "\n"+indent)
+}
+
+// Produce a (possibly not unique) variable name from a type name.
+func typeNameToVarName(pref string, ty fuzzparser.Type) string {
+	f := func(r rune) rune {
+		if unicode.IsLetter(r) {
+			return r
+		} else {
+			return -1
+		}
+	}
+
+	name := strings.Map(f, ty.ToString())
+
+	// More pleasing capitalisation.
+	for i, r := range name {
+		if pref == "" && unicode.IsUpper(r) {
+			name = string(unicode.ToLower(r)) + name[i+1:]
+		} else if pref != "" && unicode.IsLower(r) {
+			name = string(unicode.ToUpper(r)) + name[i+1:]
+		}
+
+		break
+	}
+
+	return pref + name
 }
