@@ -158,9 +158,11 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 		}
 
 		var checks []string
+		retsExpected := funcRetNames("expected", function)
+		retsActual := funcRetNames("actual", function)
 		for i, ty := range function.Returns {
-			expected := "reta" + strconv.Itoa(i)
-			actual := "retb" + strconv.Itoa(i)
+			expected := retsExpected[i]
+			actual := retsActual[i]
 			check, err := makeValueComparison(fuzzer, expected, actual, ty, "Inconsistent result in "+function.Name)
 			if err != nil {
 				return "", err
@@ -234,21 +236,11 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 		decls []string
 		args  []string
 		gens  []string
-		retsa []string
-		retsb []string
 	)
 
-	var priorArgs []string
+	argNames := funcArgNames(function)
 	for i, ty := range function.Parameters {
-		// Generate a name for this variable based on the type.
-		arg := typeNameToVarName("arg", ty)
-		for _, prior := range priorArgs {
-			if arg == prior {
-				arg = arg + strconv.Itoa(i)
-				break
-			}
-		}
-		priorArgs = append(priorArgs, arg)
+		arg := argNames[i]
 
 		decls = append(decls, arg+" "+ty.ToString())
 		args = append(args, arg)
@@ -259,21 +251,8 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 		gens = append(gens, gen)
 	}
 
-	var priorRets []string
-	for i, ty := range function.Returns {
-		// Generate a name for this variable based on the type.
-		ret := typeNameToVarName("ret", ty)
-		for _, prior := range priorRets {
-			if ret == prior {
-				ret = ret + strconv.Itoa(i)
-				break
-			}
-		}
-		priorRets = append(priorRets, ret)
-
-		retsa = append(retsa, ret+"A")
-		retsb = append(retsb, ret+"B")
-	}
+	retsExpected := funcRetNames("expected", function)
+	retsActual := funcRetNames("actual", function)
 
 	body := fmt.Sprintf(
 		template,
@@ -282,8 +261,8 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 		strings.Join(decls, "\n\t"),
 		strings.Join(gens, "\n"),
 		strings.Join(args, ", "),
-		strings.Join(retsa, ", "),
-		strings.Join(retsb, ", "))
+		strings.Join(retsExpected, ", "),
+		strings.Join(retsActual, ", "))
 
 	// Slightly nicer output if there are no arguments
 	if len(args) == 0 {
@@ -291,8 +270,8 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 			templateNoArgs,
 			funcA,
 			funcB,
-			strings.Join(retsa, ", "),
-			strings.Join(retsb, ", "))
+			strings.Join(retsExpected, ", "),
+			strings.Join(retsActual, ", "))
 	}
 
 	return body, nil
@@ -399,6 +378,37 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 func indentLines(s string, indent string) string {
 	lines := strings.Split(s, "\n")
 	return indent + strings.Join(lines, "\n"+indent)
+}
+
+// Produce unique names for function arguments. These do not clash
+// with names produced by funcRetNames.
+func funcArgNames(function fuzzparser.Function) []string {
+	return typeListNames("arg", function.Parameters)
+}
+
+// Produce unique names for function returns. These do not clash with
+// names produced by funcArgNames.
+func funcRetNames(prefix string, function fuzzparser.Function) []string {
+	return typeListNames(prefix, function.Returns)
+}
+
+// Produce names for variables given a list of types.
+func typeListNames(prefix string, tylist []fuzzparser.Type) []string {
+	var names []string
+
+	for i, ty := range tylist {
+		// Generate a name for this variable based on the type.
+		name := typeNameToVarName(prefix, ty)
+		for _, prior := range names {
+			if name == prior {
+				name = name + strconv.Itoa(i)
+				break
+			}
+		}
+		names = append(names, name)
+	}
+
+	return names
 }
 
 // Produce a (possibly not unique) variable name from a type name.
