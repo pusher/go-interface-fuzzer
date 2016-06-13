@@ -1,6 +1,6 @@
-.PHONY: default fmt build clean
+.PHONY: all default fmt build clean
 
-default: fmt build
+all: default
 
 fmt:
 	go fmt ./...
