@@ -18,9 +18,9 @@ package example
 
 @generator state: uint(0)
 
-@generator: ! generateChannel   model.Channel
-@generator:   generateID        model.ID
-@generator:   generateIDMessage model.IDMessage
+@generator:   generateChannel   model.Channel
+@generator: ! generateID        model.ID
+@generator: ! generateIDMessage model.IDMessage
 */
 type Store interface {
 	// Inserts an entry in the store. Returns an error if an entry with greater or

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -283,10 +284,13 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (strin
 	// If there's a provided generator, use that.
 	generator, ok := fuzzer.Wanted.Generator[tyname]
 	if ok {
-		if fuzzer.Wanted.GeneratorState == "" || generator.IsStateless {
-			return fmt.Sprintf("%s = %s(rand)", varname, generator.Name), nil
+		if generator.IsStateful {
+			if fuzzer.Wanted.GeneratorState == "" {
+				return "", errors.New("Stateful generator used when no initial state given.")
+			}
+			return fmt.Sprintf("%s, state = %s(rand, state)", varname, generator.Name), nil
 		}
-		return fmt.Sprintf("%s, state = %s(rand, state)", varname, generator.Name), nil
+		return fmt.Sprintf("%s = %s(rand)", varname, generator.Name), nil
 	}
 
 	// If it's a type we can handle, supply a default generator.

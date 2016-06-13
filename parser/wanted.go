@@ -43,8 +43,8 @@ type WantedFuzzer struct {
 // Generator is the name of a function to generate a value of a given
 // type.
 type Generator struct {
-	// True if this is stateless.
-	IsStateless bool
+	// True if this is stateful.
+	IsStateful bool
 
 	// The function itself.
 	Name string
@@ -161,11 +161,11 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				// "@generator:"
 				suff, ok = matchPrefix(line, "@generator:")
 				if ok {
-					tyname, genfunc, stateless, err := parseGenerator(suff)
+					tyname, genfunc, stateful, err := parseGenerator(suff)
 					if err != nil {
 						return WantedFuzzer{}, err
 					}
-					fuzzer.Generator[tyname.ToString()] = Generator{IsStateless: stateless, Name: genfunc}
+					fuzzer.Generator[tyname.ToString()] = Generator{IsStateful: stateful, Name: genfunc}
 					continue
 				}
 
@@ -282,17 +282,17 @@ func parseComparison(line string) (Type, EitherFunctionOrMethod, error) {
 // SYNTAX: [!] FunctionName Type
 func parseGenerator(line string) (Type, string, bool, error) {
 	var (
-		ty        Type
-		name      string
-		stateless bool
-		err       error
-		rest      string
+		ty       Type
+		name     string
+		stateful bool
+		err      error
+		rest     string
 	)
 
 	// [!]
 	if line[0] == '!' {
 		line = strings.TrimLeftFunc(line[1:], unicode.IsSpace)
-		stateless = true
+		stateful = true
 	}
 
 	name, rest = parseName(line)
@@ -307,7 +307,7 @@ func parseGenerator(line string) (Type, string, bool, error) {
 		}
 	}
 
-	return ty, name, stateless, err
+	return ty, name, stateful, err
 }
 
 // Parse a "@generator state:"

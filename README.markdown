@@ -65,26 +65,24 @@ type. It is passed a PRNG of type *rand.Rand. If no generator for a
 type is specified, the tool will attempt to produce a default; and
 report an error otherwise.
 
-@generator: ! GenerateChannel   model.Channel
+@generator:   GenerateChannel   model.Channel
 @generator: ! GenerateID        model.EventID
-@generator:   GenerateIDMessage model.IDMessage
-@generator: ! GeneratePartition model.Partition
+@generator: ! GenerateIDMessage model.IDMessage
+@generator:   GeneratePartition model.Partition
 
 **Syntax:**
 
   "[!] FunctionName Type"
 
-  The presence of a `!` means that this is a stateless function: it is
-  not passed a state parameter and is not expected to return a new
-  state.
+  The presence of a `!` means that this is a stateful function: it is
+  also passed a state parameter and is expected to return a new state
+  as its second result.
 
 
-`@generator state` specifies that custom generator functions (those
-specified by a `@generator` line) take a state parameter, and gives
-the value of the initial state (which is any legal expression, copied
-verbatim into the generated code). If a generator state is present, it
-is passed as the SECOND argument (after the *rand.Rand value); and
-the generator returns a new state as the SECOND result.
+`@generator state` supplies an initial state for stateful
+generators. It must be given if any generators are stateful. The
+initial state is any legal Go expression; it is just copied verbatim
+into the generated code.
 
 @generator state: InitialGeneratorState
 
