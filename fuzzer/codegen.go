@@ -269,7 +269,7 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 			funcA,
 			funcB,
 			strings.Join(retsa, ", "),
-			strings.Join(retsa, ", "))
+			strings.Join(retsb, ", "))
 	}
 
 	return body, nil
