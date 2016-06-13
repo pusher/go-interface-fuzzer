@@ -65,17 +65,18 @@ type. It is passed a PRNG of type *rand.Rand. If no generator for a
 type is specified, the tool will attempt to produce a default; and
 report an error otherwise.
 
-@generator: GenerateChannel   model.Channel
-@generator: GenerateID        model.EventID
-@generator: GenerateIDMessage model.IDMessage
-@generator: GenerateParition  model.Partition
+@generator: ! GenerateChannel   model.Channel
+@generator: ! GenerateID        model.EventID
+@generator:   GenerateIDMessage model.IDMessage
+@generator: ! GeneratePartition model.Partition
 
 **Syntax:**
 
-  "FunctionName Type"
+  "[!] FunctionName Type"
 
-  The function is passed two paremeters, the array of all values of
-  that type generated so far, and a `*rand.Rand` value.
+  The presence of a `!` means that this is a stateless function: it is
+  not passed a state parameter and is not expected to return a new
+  state.
 
 
 `@generator state` specifies that custom generator functions (those

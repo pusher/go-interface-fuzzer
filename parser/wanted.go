@@ -34,10 +34,20 @@ type WantedFuzzer struct {
 	Comparison map[string]EitherFunctionOrMethod
 
 	// Generator functions The keys of this map are ToString'd Types.
-	Generator map[string]string
+	Generator map[string]Generator
 
 	// Initial state for custom generator functions.
 	GeneratorState string
+}
+
+// Generator is the name of a function to generate a value of a given
+// type.
+type Generator struct {
+	// True if this is stateless.
+	IsStateless bool
+
+	// The function itself.
+	Name string
 }
 
 // EitherFunctionOrMethod is either a function or a method. Param and
@@ -99,7 +109,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 		Reference:      Function{},
 		ReturnsValue:   false,
 		Comparison:     make(map[string]EitherFunctionOrMethod),
-		Generator:      make(map[string]string),
+		Generator:      make(map[string]Generator),
 		GeneratorState: "",
 	}
 	fuzzing := false
@@ -151,11 +161,11 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 				// "@generator:"
 				suff, ok = matchPrefix(line, "@generator:")
 				if ok {
-					tyname, genfunc, err := parseGenerator(suff)
+					tyname, genfunc, stateless, err := parseGenerator(suff)
 					if err != nil {
 						return WantedFuzzer{}, err
 					}
-					fuzzer.Generator[tyname.ToString()] = genfunc
+					fuzzer.Generator[tyname.ToString()] = Generator{IsStateless: stateless, Name: genfunc}
 					continue
 				}
 
@@ -269,14 +279,21 @@ func parseComparison(line string) (Type, EitherFunctionOrMethod, error) {
 
 // Parse a "@generator:"
 //
-// SYNTAX: FunctionName Type
-func parseGenerator(line string) (Type, string, error) {
+// SYNTAX: [!] FunctionName Type
+func parseGenerator(line string) (Type, string, bool, error) {
 	var (
-		ty   Type
-		name string
-		err  error
-		rest string
+		ty        Type
+		name      string
+		stateless bool
+		err       error
+		rest      string
 	)
+
+	// [!]
+	if line[0] == '!' {
+		line = strings.TrimLeftFunc(line[1:], unicode.IsSpace)
+		stateless = true
+	}
 
 	name, rest = parseName(line)
 
@@ -290,7 +307,7 @@ func parseGenerator(line string) (Type, string, error) {
 		}
 	}
 
-	return ty, name, err
+	return ty, name, stateless, err
 }
 
 // Parse a "@generator state:"

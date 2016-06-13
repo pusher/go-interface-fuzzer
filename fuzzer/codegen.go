@@ -281,17 +281,16 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (strin
 	tyname := ty.ToString()
 
 	// If there's a provided generator, use that.
-	tygen, ok := fuzzer.Wanted.Generator[tyname]
+	generator, ok := fuzzer.Wanted.Generator[tyname]
 	if ok {
-		if fuzzer.Wanted.GeneratorState == "" {
-			return fmt.Sprintf("%s = %s(rand)", varname, tygen), nil
-		} else {
-			return fmt.Sprintf("%s, state = %s(rand, state)", varname, tygen), nil
+		if fuzzer.Wanted.GeneratorState == "" || generator.IsStateless {
+			return fmt.Sprintf("%s = %s(rand)", varname, generator.Name), nil
 		}
+		return fmt.Sprintf("%s, state = %s(rand, state)", varname, generator.Name), nil
 	}
 
 	// If it's a type we can handle, supply a default generator.
-	tygen = ""
+	tygen := ""
 
 	switch tyname {
 	case "bool":
