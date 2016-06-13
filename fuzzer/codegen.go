@@ -71,7 +71,7 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 	template := `func Fuzz%[1]s(makeTest (func (%[2]s) %[1]s), rand *rand.Rand, max uint) error {
 %[5]s
 
-	return Fuzz%[1]sWith(%[4]sretA0, retB0, rand, max)
+	return Fuzz%[1]sWith(%[4]sreta0, retb0, rand, max)
 }`
 
 	var ampersand string
