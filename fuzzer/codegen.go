@@ -116,8 +116,9 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 	// - interface name
 	// - number of methods in interface
 	// - code to perform methods
+	// - code to create initial state
 	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {
-	actionsToPerform := maxops
+	actionsToPerform := maxops%[4]s
 
 	for actionsToPerform > 0 {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
@@ -169,11 +170,17 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 		actions = append(actions, action)
 	}
 
+	var initialState string
+	if fuzzer.Wanted.GeneratorState != "" {
+		initialState = fmt.Sprintf("\n\n\t// Create initial state\n\tstate := %s", fuzzer.Wanted.GeneratorState)
+	}
+
 	body := fmt.Sprintf(
 		template,
 		fuzzer.Interface.Name,
 		len(fuzzer.Interface.Functions),
-		indentLines(strings.Join(actions, "\n"), "\t\t"))
+		indentLines(strings.Join(actions, "\n"), "\t\t"),
+		initialState)
 
 	return body, nil
 }
@@ -276,7 +283,11 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (strin
 	// If there's a provided generator, use that.
 	tygen, ok := fuzzer.Wanted.Generator[tyname]
 	if ok {
-		return fmt.Sprintf("%s = %s(rand)", varname, tygen), nil
+		if fuzzer.Wanted.GeneratorState == "" {
+			return fmt.Sprintf("%s = %s(rand)", varname, tygen), nil
+		} else {
+			return fmt.Sprintf("%s, state = %s(rand, state)", varname, tygen), nil
+		}
 	}
 
 	// If it's a type we can handle, supply a default generator.

@@ -35,6 +35,9 @@ type WantedFuzzer struct {
 
 	// Generator functions The keys of this map are ToString'd Types.
 	Generator map[string]string
+
+	// Initial state for custom generator functions.
+	GeneratorState string
 }
 
 // EitherFunctionOrMethod is either a function or a method. Param and
@@ -92,11 +95,12 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 	comments := group.List
 
 	fuzzer := WantedFuzzer{
-		InterfaceName: "",
-		Reference:     Function{},
-		ReturnsValue:  false,
-		Comparison:    make(map[string]EitherFunctionOrMethod),
-		Generator:     make(map[string]string),
+		InterfaceName:  "",
+		Reference:      Function{},
+		ReturnsValue:   false,
+		Comparison:     make(map[string]EitherFunctionOrMethod),
+		Generator:      make(map[string]string),
+		GeneratorState: "",
 	}
 	fuzzing := false
 
@@ -154,6 +158,17 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 					fuzzer.Generator[tyname.ToString()] = genfunc
 					continue
 				}
+
+				// "@generator state:"
+				suff, ok = matchPrefix(line, "@generator state:")
+				if ok {
+					state, err := parseGeneratorState(suff)
+					if err != nil {
+						return WantedFuzzer{}, err
+					}
+					fuzzer.GeneratorState = state
+					continue
+				}
 			}
 		}
 	}
@@ -164,7 +179,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error)
 	return WantedFuzzer{}, errors.New("No fuzzer found in group.")
 }
 
-// Prse a "@fuzz interface:"
+// Parse a "@fuzz interface:"
 //
 // SYNTAX: Name
 func parseFuzzInterface(line string) (string, error) {
@@ -276,6 +291,27 @@ func parseGenerator(line string) (Type, string, error) {
 	}
 
 	return ty, name, err
+}
+
+// Parse a "@generator state:"
+//
+// SYNTAX: Name
+func parseGeneratorState(line string) (string, error) {
+	var (
+		name string
+		err  error
+		rest string
+	)
+
+	name, rest = parseName(line)
+
+	if name == "" {
+		err = fmt.Errorf("Expected a name in '%s'", line)
+	} else if rest != "" {
+		err = fmt.Errorf("Unexpected left over input in '%s' (got '%s')", line, rest)
+	}
+
+	return name, err
 }
 
 // Parse a function or a method, returning the remainder of the

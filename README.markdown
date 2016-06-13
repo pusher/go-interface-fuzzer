@@ -77,6 +77,20 @@ report an error otherwise.
   that type generated so far, and a `*rand.Rand` value.
 
 
+`@generator state` specifies that custom generator functions (those
+specified by a `@generator` line) take a state parameter, and gives
+the name of the initial state (which is assumed to be a value). If a
+generator state is present, it is passed as the SECOND argument
+(before the *rand.Rand value); and the generator returns a new state
+as the SECOND result.
+
+@generator state: InitialGeneratorState
+
+**Syntax:**
+
+  "ValueName"
+
+
 This will generate the following functions:
 
  - `FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error`
