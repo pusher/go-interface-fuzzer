@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"go/token"
 )
 
 // An Interface is a representation of an interface type.
@@ -155,89 +154,34 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 	var interfaces []Interface
 
 	ast.Inspect(theAST, func(node ast.Node) bool {
-		iface, err := interfaceFromNode(node)
-		if err == nil {
-			interfaces = append(interfaces, iface)
+		switch tyspec := node.(type) {
+		case *ast.TypeSpec:
+			name := tyspec.Name.Name
+			switch ifacety := tyspec.Type.(type) {
+			case *ast.InterfaceType:
+				functions, err := functionsFromInterfaceType(*ifacety)
+				iface := Interface{Name: name, Functions: functions}
+				if err == nil {
+					interfaces = append(interfaces, iface)
+				}
+			}
+
+			// Whether we found one or not, there can be
+			// no interfaces at a lower level than this.
+			return false
 		}
+
+		// Maybe we just haven't recursed deeply
+		// enough. Onwards!
 		return true
 	})
 
 	return interfaces
 }
 
-// interfaceFromNode tries to extract an interface from an ast.Node.
-func interfaceFromNode(node ast.Node) (Interface, error) {
-	if node == nil {
-		return Interface{}, errors.New("Node is nil")
-	}
-	switch gendecl := node.(type) {
-	case *ast.GenDecl:
-		iface, err := interfaceFromGenDecl(gendecl)
-		return iface, err
-	}
-	return Interface{}, errors.New("Node is not a GenDecl")
-}
-
-// interfaceFromGenDecl tries to extract an interface from an
-// *ast.GenDecl.
-func interfaceFromGenDecl(gendecl *ast.GenDecl) (Interface, error) {
-	if gendecl == nil {
-		return Interface{}, errors.New("GenDecl is nil")
-	}
-	if gendecl.Tok != token.TYPE {
-		return Interface{}, errors.New("GenDecl is not a type declaration")
-	}
-	if gendecl.Specs == nil {
-		return Interface{}, errors.New("GenDecl contains no specifications")
-	}
-
-	// Will there ever be more than one Spec? I don't know. To be
-	// safe, loop over them and return the first interface.
-	for _, spec := range gendecl.Specs {
-		iface, err := interfaceFromSpec(spec)
-		if err == nil {
-			return iface, err
-		}
-	}
-
-	return Interface{}, errors.New("GenDecl contains no type specifications")
-}
-
-// interfaceFromSpec tries to extract an interface from an ast.Spec.
-func interfaceFromSpec(spec ast.Spec) (Interface, error) {
-	if spec == nil {
-		return Interface{}, errors.New("Spec is nil")
-	}
-
-	switch tyspec := spec.(type) {
-	case *ast.TypeSpec:
-		iface, err := interfaceFromTypeSpec(tyspec)
-		return iface, err
-	}
-
-	return Interface{}, errors.New("Spec is not a TypeSpec")
-}
-
-// interfaceFromTypeSpec tries to extract an interface from an
-// *ast.TypeSpec.
-func interfaceFromTypeSpec(tyspec *ast.TypeSpec) (Interface, error) {
-	if tyspec == nil {
-		return Interface{}, errors.New("TypeSpec is nil")
-	}
-
-	switch ifacety := tyspec.Type.(type) {
-	case *ast.InterfaceType:
-		name := tyspec.Name.Name
-		functions, err := functionsFromInterfaceType(ifacety)
-		return Interface{Name: name, Functions: functions}, err
-	}
-
-	return Interface{}, errors.New("TypeSpec is not an interface type")
-}
-
 // functionsFromInterfaceType tries to extract function declarations
-// from an *ast.InterfaceType.
-func functionsFromInterfaceType(ifacety *ast.InterfaceType) ([]Function, error) {
+// from an ast.InterfaceType.
+func functionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 	if ifacety.Methods == nil {
 		return []Function{}, errors.New("Interface method slice is nil")
 	}
@@ -249,6 +193,7 @@ func functionsFromInterfaceType(ifacety *ast.InterfaceType) ([]Function, error) 
 		}
 
 		// Can there be more than one name?
+		name := field.Names[0].Name
 		obj := field.Names[0].Obj
 
 		if obj == nil || obj.Decl == nil {
@@ -257,74 +202,43 @@ func functionsFromInterfaceType(ifacety *ast.InterfaceType) ([]Function, error) 
 
 		switch fundecl := obj.Decl.(type) {
 		case *ast.Field:
-			function, err := functionFromField(field.Names[0].Name, fundecl)
+			ast.Inspect(fundecl, func(node ast.Node) bool {
+				switch funty := node.(type) {
+				case *ast.FuncType:
+					parameters := typeListFromFieldList(*funty.Params)
+					returns := typeListFromFieldList(*funty.Results)
+					function := Function{Name: name, Parameters: parameters, Returns: returns}
+					functions = append(functions, function)
+					return false
+				}
 
-			if err != nil {
-				return functions, err
-			}
-			functions = append(functions, function)
+				return true
+			})
 		}
 	}
 
 	return functions, nil
 }
 
-// functionFromField tries to extract a function from an *ast.Field.
-func functionFromField(name string, field *ast.Field) (Function, error) {
-	if field == nil {
-		return Function{}, errors.New("Field is nil")
-	}
-	if field.Type == nil {
-		return Function{}, errors.New("Field type is nil")
-	}
-
-	switch functype := field.Type.(type) {
-	case *ast.FuncType:
-		function, err := functionFromFuncType(name, functype)
-		return function, err
-	}
-
-	return Function{}, errors.New("Type is not a function type")
-}
-
-// functionFromFuncType tries to extract a function from an *ast.FuncType.
-func functionFromFuncType(name string, funty *ast.FuncType) (Function, error) {
-	if funty == nil {
-		return Function{}, errors.New("FuncType is nil")
-	}
-
-	parameters := typeList(funty.Params)
-	returns := typeList(funty.Results)
-
-	return Function{Name: name, Parameters: parameters, Returns: returns}, nil
-}
-
-// Get the list of type names from an *ast.FieldList. Names are not
+// Get the list of type names from an ast.FieldList. Names are not
 // returned.
-func typeList(fields *ast.FieldList) []Type {
+func typeListFromFieldList(fields ast.FieldList) []Type {
 	var types []Type
 
-	if fields == nil || fields.List == nil {
-		return types
-	}
-
-	for _, field := range fields.List {
-		ty := typeFromField(field)
-		if ty != nil {
-			types = append(types, ty)
+	ast.Inspect(&fields, func(node ast.Node) bool {
+		switch tyexpr := node.(type) {
+		case ast.Expr:
+			ty := typeFromTypeExpr(tyexpr)
+			if ty != nil {
+				types = append(types, ty)
+			}
+			return false
 		}
-	}
+
+		return true
+	})
 
 	return types
-}
-
-// Get a type from an *ast.Field.
-func typeFromField(field *ast.Field) Type {
-	if field == nil {
-		return nil
-	}
-
-	return typeFromTypeExpr(field.Type)
 }
 
 // Get a type from an ast.Expr which is known to represent a type.
