@@ -157,8 +157,15 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 	return fuzzers, errors.New("no fuzzer found in group"), false
 }
 
-// Parse a line in a comment. If this is a special comment, handle it
-// and mutate the wanted fuzzer; if not, skip over.
+/* Parse a line in a comment. If this is a special comment, handle it
+and mutate the wanted fuzzer; if not, skip over.
+
+SYNTAX: @known correct:   <parseKnownCorrect>
+      | @comparison:      <parseComparison>
+      | @generator:       <parseGenerator>
+      | @generator state: <parseGeneratorState>
+*/
+
 func parseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@known correct:"
 	suff, ok := matchPrefix(line, "@known correct:")
@@ -439,6 +446,8 @@ func parseType(s string) (Type, string, error) {
 }
 
 // Helper function for parsing a unary type operator: [], chan, or *.
+//
+// SYNTAX: Type
 func parseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error) {
 	var (
 		innerTy Type
