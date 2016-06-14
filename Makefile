@@ -15,5 +15,5 @@ test:
 clean:
 	rm go-interface-fuzzer
 
-go-interface-fuzzer: **/*.go
-	cd fuzzer && go build -o ../$@
+go-interface-fuzzer: *.go
+	go build -o $@

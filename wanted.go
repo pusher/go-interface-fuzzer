@@ -7,7 +7,7 @@
 // See the README for a comprehensive explanation of the special
 // comments.
 
-package parser
+package main
 
 import (
 	"errors"

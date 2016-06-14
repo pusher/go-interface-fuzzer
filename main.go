@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/urfave/cli"
-
-	fuzzparser "barrucadu/go-interface-fuzzer/parser"
 )
 
 func main() {
@@ -36,9 +34,9 @@ func main() {
 			return cli.NewExitError("Could not parse file.", 1)
 		}
 
-		interfaces := fuzzparser.InterfacesFromAST(parsedFile)
+		interfaces := InterfacesFromAST(parsedFile)
 
-		wanteds, errs := fuzzparser.WantedFuzzersFromAST(parsedFile)
+		wanteds, errs := WantedFuzzersFromAST(parsedFile)
 
 		// Print errors
 		if len(errs) > 0 {

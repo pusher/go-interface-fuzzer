@@ -1,6 +1,6 @@
 // String operations used elsewhere in the parser.
 
-package parser
+package main
 
 import (
 	"strings"

@@ -6,15 +6,13 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-
-	fuzzparser "barrucadu/go-interface-fuzzer/parser"
 )
 
 // Fuzzer is a pair of an interface declaration and a description of
 // how to generate the fuzzer.
 type Fuzzer struct {
-	Interface fuzzparser.Interface
-	Wanted    fuzzparser.WantedFuzzer
+	Interface Interface
+	Wanted    WantedFuzzer
 }
 
 // CodegenTestCase generates a function which can be used as a test
@@ -205,7 +203,7 @@ func generatorArgs(fuzzer Fuzzer) string {
 //
 // Arguments are stored in variables arg0 ... argN. Return values in
 // variables reta0 ... retaN and retb0 ... retbN.
-func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB string) (string, error) {
+func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
 	// Format parameters:
 	//
 	// - first function name
@@ -279,7 +277,7 @@ func makeFunctionCalls(fuzzer Fuzzer, function fuzzparser.Function, funcA, funcB
 
 // Produce some code to populate a given variable with a random value
 // of the named type, assuming a PRNG called 'rand' is in scope.
-func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (string, error) {
+func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	tyname := ty.ToString()
 
 	// If there's a provided generator, use that.
@@ -344,7 +342,7 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty fuzzparser.Type) (strin
 
 // Produce some code to compare two values of the same type, returning
 // an error on discrepancy.
-func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty fuzzparser.Type, errmsg string) (string, error) {
+func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) (string, error) {
 	// Format parameters:
 	//
 	// - expected variable name
@@ -383,18 +381,18 @@ func indentLines(s string, indent string) string {
 
 // Produce unique names for function arguments. These do not clash
 // with names produced by funcRetNames.
-func funcArgNames(function fuzzparser.Function) []string {
+func funcArgNames(function Function) []string {
 	return typeListNames("arg", function.Parameters)
 }
 
 // Produce unique names for function returns. These do not clash with
 // names produced by funcArgNames.
-func funcRetNames(prefix string, function fuzzparser.Function) []string {
+func funcRetNames(prefix string, function Function) []string {
 	return typeListNames(prefix, function.Returns)
 }
 
 // Produce names for variables given a list of types.
-func typeListNames(prefix string, tylist []fuzzparser.Type) []string {
+func typeListNames(prefix string, tylist []Type) []string {
 	var names []string
 
 	for i, ty := range tylist {
@@ -413,7 +411,7 @@ func typeListNames(prefix string, tylist []fuzzparser.Type) []string {
 }
 
 // Produce a (possibly not unique) variable name from a type name.
-func typeNameToVarName(pref string, ty fuzzparser.Type) string {
+func typeNameToVarName(pref string, ty Type) string {
 	f := func(r rune) rune {
 		if unicode.IsLetter(r) {
 			return r

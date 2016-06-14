@@ -4,7 +4,7 @@
 // interface type, the default interface is returned and the error is
 // non-nil. Similarly for the FunctionFrom* functions.
 
-package parser
+package main
 
 import (
 	"errors"
