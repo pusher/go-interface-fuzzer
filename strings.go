@@ -69,3 +69,16 @@ func indentLines(s string, indent string) string {
 	indented := indent + strings.Join(lines, "\n"+indent)
 	return strings.Replace(indented, indent+"\n", "\n", -1)
 }
+
+// Filter runes in a string. Unlike takeWhileIn this processes the
+// entire string, not just a prefix.
+func filter(s string, allowed func(rune) bool) string {
+	f := func(r rune) rune {
+		if allowed(r) {
+			return r
+		}
+		return -1
+	}
+
+	return strings.Map(f, s)
+}

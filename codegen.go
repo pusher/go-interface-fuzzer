@@ -425,14 +425,7 @@ func typeListNames(prefix string, tylist []Type) []string {
 
 // Produce a (possibly not unique) variable name from a type name.
 func typeNameToVarName(pref string, ty Type) string {
-	f := func(r rune) rune {
-		if unicode.IsLetter(r) {
-			return r
-		}
-		return -1
-	}
-
-	name := strings.Map(f, ty.ToString())
+	name := filter(ty.ToString(), unicode.IsLetter)
 
 	// More pleasing capitalisation.
 	for i, r := range name {

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
+	"unicode"
 )
 
 // Check that matchDelims can remove delimiters and get back the
@@ -111,6 +112,51 @@ func TestTakeWhileInGivesGoodPrefix(t *testing.T) {
 			if !strings.ContainsRune(allowed, chr) {
 				t.Fatal("Found invalid character in prefix.")
 			}
+		}
+
+		return true
+	}
+
+	quickcheck(f, t)
+}
+
+// Check that filter doesn't increase the length.
+func TestFilterLen(t *testing.T) {
+	f := func(str string) bool {
+		return len(str) >= len(filter(str, unicode.IsLetter))
+	}
+
+	quickcheck(f, t)
+}
+
+// Check that the result of filter only contains characters matching
+// the predicate.
+func TestFilterPredicate(t *testing.T) {
+	f := func(str string) bool {
+		predicate := unicode.IsLetter
+		filtered := filter(str, predicate)
+
+		for _, r := range filtered {
+			if !predicate(r) {
+				t.Fatal("Found invalid character in filter output.")
+			}
+		}
+
+		return true
+	}
+
+	quickcheck(f, t)
+}
+
+// Check that filtering is idempotent.
+func TestFilterIdempotent(t *testing.T) {
+	f := func(str string) bool {
+		predicate := unicode.IsLetter
+		filtered1 := filter(str, predicate)
+		filtered2 := filter(filtered1, predicate)
+
+		if filtered1 != filtered2 {
+			expectedActual("Filtering is not idempotent.", filtered1, filtered2, t)
 		}
 
 		return true
