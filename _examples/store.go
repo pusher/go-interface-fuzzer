@@ -27,7 +27,7 @@ type Store interface {
 	// equal ID was already inserted.
 	Put(model.IDMessage) error
 
-	// Returns a slice of all messaegs in the specified channels, from the
+	// Returns a slice of all messages in the specified channels, from the
 	// specified ID to the message with most recent ID. All messages will have IDs
 	// such that `sinceID < ID <= mostRecentID`.
 	EntriesSince(model.ID, model.Channel) (model.ID, []model.IDMessage)
@@ -39,8 +39,8 @@ type Store interface {
 	// Returns the ID of the most recently inserted message.
 	MostRecentID() model.ID
 
-	// Returns all messages across all partitions and channels as
-	// a single slice, sorted by ID.
+	// Returns all messages across all channels as a single slice,
+	// sorted by ID.
 	AsSlice() []model.IDMessage
 
 	// Returns the maximum number of messages in the store.
@@ -53,8 +53,8 @@ func compareMessageIterators(expected, actual *MessageIterator) bool {
 }
 
 // Create a new clean ModelStore for testing purposes.
-func makeModelStore(capacity int) ModelStore {
-	return NewModelStore(capacity, []model.IDMessage{})
+func makeReferenceStore(capacity int) ReferenceStore {
+	return NewReferenceStore(capacity, []model.IDMessage{})
 }
 
 // Generate a channel name. Use a short string.
