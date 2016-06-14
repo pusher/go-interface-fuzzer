@@ -24,12 +24,11 @@ func FuzzStore(makeTest (func (int) Store), rand *rand.Rand, max uint) error {
 }
 
 func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error {
-	actionsToPerform := maxops
 
 	// Create initial state
 	state := uint(0)
 
-	for actionsToPerform > 0 {
+	for i = 0; i < maxops; i++ {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 
@@ -49,7 +48,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !((expectedError == nil) == (actualError == nil)) {
-				return fmt.Errorf("Inconsistent result in Put\nexpected: %v\nactual:   %v", expectedError, actualError)
+				return fmt.Errorf("inconsistent result in Put\nexpected: %v\nactual:   %v", expectedError, actualError)
 			}
 		case 1:
 			// Call the method on both implementations
@@ -66,10 +65,10 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("Inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
+				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
 			}
 			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
-				return fmt.Errorf("Inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
+				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
 			}
 		case 2:
 			// Call the method on both implementations
@@ -86,10 +85,10 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("Inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
+				return fmt.Errorf("inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
 			}
 			if !compareMessageIterators(expectedMessageIterator, actualMessageIterator) {
-				return fmt.Errorf("Inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedMessageIterator, actualMessageIterator)
+				return fmt.Errorf("inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedMessageIterator, actualMessageIterator)
 			}
 		case 3:
 			// Call the method on both implementations
@@ -98,7 +97,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("Inconsistent result in MostRecentID\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
+				return fmt.Errorf("inconsistent result in MostRecentID\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
 			}
 		case 4:
 			// Call the method on both implementations
@@ -107,7 +106,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
-				return fmt.Errorf("Inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
+				return fmt.Errorf("inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
 			}
 		case 5:
 			// Call the method on both implementations
@@ -116,12 +115,11 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 			// And check for discrepancies.
 			if !reflect.DeepEqual(expectedInt, actualInt) {
-				return fmt.Errorf("Inconsistent result in MessageLimit\nexpected: %v\nactual:   %v", expectedInt, actualInt)
+				return fmt.Errorf("inconsistent result in MessageLimit\nexpected: %v\nactual:   %v", expectedInt, actualInt)
 			}
 		}
-
-		actionsToPerform --
 	}
 
 	return nil
 }
+

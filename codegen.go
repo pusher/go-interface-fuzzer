@@ -15,6 +15,8 @@ type Fuzzer struct {
 	Wanted    WantedFuzzer
 }
 
+/// MAIN CODE GENERATORS
+
 // CodegenTestCase generates a function which can be used as a test
 // case when given an implementation to test.
 //
@@ -117,10 +119,9 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 	// - number of methods in interface
 	// - code to perform methods
 	// - code to create initial state
-	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {
-	actionsToPerform := maxops%[4]s
+	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {%[4]s
 
-	for actionsToPerform > 0 {
+	for i = 0; i < maxops; i++ {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 
@@ -129,8 +130,6 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 		switch actionToPerform {
 %[3]s
 		}
-
-		actionsToPerform --
 	}
 
 	return nil
@@ -138,38 +137,12 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 
 	var actions []string
 	for i, function := range fuzzer.Interface.Functions {
-		// Format parameters:
-		//
-		// - case number
-		// - code to declare variables + call functions (etc)
-		// - code to check for discrepancies
-		template := `case %[1]v:
-	// Call the method on both implementations
-%[2]s
-
-	// And check for discrepancies.
-%[3]s`
-
-		funcalls, err := makeFunctionCalls(fuzzer, function, "reference."+function.Name, "test."+function.Name)
+		caseTemplate := "case %[1]v:\n%s"
+		action, err := codegenFunctionTest(fuzzer, function)
 		if err != nil {
 			return "", err
 		}
-
-		var checks []string
-		retsExpected := funcRetNames("expected", function)
-		retsActual := funcRetNames("actual", function)
-		for i, ty := range function.Returns {
-			expected := retsExpected[i]
-			actual := retsActual[i]
-			check, err := makeValueComparison(fuzzer, expected, actual, ty, "Inconsistent result in "+function.Name)
-			if err != nil {
-				return "", err
-			}
-			checks = append(checks, check)
-		}
-
-		action := fmt.Sprintf(template, i, indentLines(funcalls, "\t"), indentLines(strings.Join(checks, "\n"), "\t"))
-		actions = append(actions, action)
+		actions = append(actions, fmt.Sprintf(caseTemplate, i, indentLines(action, "\t")))
 	}
 
 	var initialState string
@@ -186,6 +159,43 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 
 	return body, nil
 }
+
+// codegenFunctionTest generate the code to declare and initialise
+// variables, call the method on both implementations, compare the
+// results, and bail out on error.
+func codegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
+	// Format parameters:
+	//
+	// - code to declare variables + call functions (etc)
+	// - code to check for discrepancies
+	template := `// Call the method on both implementations
+%[1]s
+
+// And check for discrepancies.
+%[2]s`
+
+	funcalls, err := makeFunctionCalls(fuzzer, function, "reference."+function.Name, "test."+function.Name)
+	if err != nil {
+		return "", err
+	}
+
+	var checks []string
+	retsExpected := funcExpectedNames(function)
+	retsActual := funcActualNames(function)
+	for i, ty := range function.Returns {
+		expected := retsExpected[i]
+		actual := retsActual[i]
+		check, err := makeValueComparison(fuzzer, expected, actual, ty, "inconsistent result in "+function.Name)
+		if err != nil {
+			return "", err
+		}
+		checks = append(checks, check)
+	}
+
+	return fmt.Sprintf(template, funcalls, strings.Join(checks, "\n")), nil
+}
+
+/// FUNCTION CALLS
 
 // Produce the generator arguments as a comma-separated list.
 func generatorArgs(fuzzer Fuzzer) string {
@@ -249,8 +259,8 @@ func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (s
 		gens = append(gens, gen)
 	}
 
-	retsExpected := funcRetNames("expected", function)
-	retsActual := funcRetNames("actual", function)
+	retsExpected := funcExpectedNames(function)
+	retsActual := funcActualNames(function)
 
 	body := fmt.Sprintf(
 		template,
@@ -275,6 +285,8 @@ func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (s
 	return body, nil
 }
 
+/// VALUE INITIALISATION
+
 // Produce some code to populate a given variable with a random value
 // of the named type, assuming a PRNG called 'rand' is in scope.
 func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
@@ -285,7 +297,7 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	if ok {
 		if generator.IsStateful {
 			if fuzzer.Wanted.GeneratorState == "" {
-				return "", errors.New("Stateful generator used when no initial state given.")
+				return "", errors.New("stateful generator used when no initial state given")
 			}
 			return fmt.Sprintf("%s, state = %s(rand, state)", varname, generator.Name), nil
 		}
@@ -293,52 +305,43 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	}
 
 	// If it's a type we can handle, supply a default generator.
-	tygen := ""
-
-	switch tyname {
-	case "bool":
-		tygen = "rand.Intn(2) == 0"
-	case "byte":
-		tygen = "byte(rand.Uint32())"
-	case "complex64":
-		tygen = "complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))"
-	case "complex128":
-		tygen = "complex(rand.NormFloat64(), rand.NormFloat64())"
-	case "float32":
-		tygen = "float32(rand.NormFloat64())"
-	case "float64":
-		tygen = "rand.NormFloat64()"
-	case "int":
-		tygen = "rand.Int()"
-	case "int8":
-		tygen = "int8(rand.Int())"
-	case "int16":
-		tygen = "int16(rand.Int())"
-	case "int32":
-		tygen = "rand.Int31()"
-	case "int64":
-		tygen = "rand.Int63()"
-	case "rune":
-		tygen = "rune(rand.Int31())"
-	case "uint":
-		tygen = "uint(rand.Uint32())"
-	case "uint8":
-		tygen = "uint8(rand.Uint32())"
-	case "uint16":
-		tygen = "uint16(rand.Uint32())"
-	case "uint32":
-		tygen = "rand.Uint32()"
-	case "uint64":
-		tygen = "(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())"
-	}
-
-	if tygen != "" {
+	var tygen string
+	tygen, ok = defaultGenerator(tyname)
+	if ok {
 		return fmt.Sprintf("%s = %s", varname, tygen), nil
 	}
 
 	// Otherwise cry because generic programming in Go is hard :(
 	return "", fmt.Errorf("I don't know how to generate a %s", tyname)
 }
+
+// Default generators for builtin types.
+func defaultGenerator(tyname string) (string, bool) {
+	generators := map[string]string{
+		"bool":       "rand.Intn(2) == 0",
+		"byte":       "byte(rand.Uint32())",
+		"complex64":  "complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))",
+		"complex128": "complex(rand.NormFloat64(), rand.NormFloat64())",
+		"float32":    "float32(rand.NormFloat64())",
+		"float64":    "rand.NormFloat64()",
+		"int":        "rand.Int()",
+		"int8":       "int8(rand.Int())",
+		"int16":      "int16(rand.Int())",
+		"int32":      "rand.Int31()",
+		"int64":      "rand.Int63()",
+		"rune":       "rune(rand.Int31())",
+		"uint":       "uint(rand.Uint32())",
+		"uint8":      "uint8(rand.Uint32())",
+		"uint16":     "uint16(rand.Uint32())",
+		"uint32":     "rand.Uint32()",
+		"uint64":     "(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())",
+	}
+
+	tygen, ok := generators[tyname]
+	return tygen, ok
+}
+
+/// VALUE COMPARISON
 
 // Produce some code to compare two values of the same type, returning
 // an error on discrepancy.
@@ -354,7 +357,7 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 }`
 
 	tyname := ty.ToString()
-	comparison := fmt.Sprintf("reflect.DeepEqual(%s, %s)", expectedvar, actualvar)
+	comparison := fmt.Sprintf(defaultComparison(tyname), expectedvar, actualvar)
 
 	// If there's a provided comparison, use that.
 	tycomp, ok := fuzzer.Wanted.Comparison[tyname]
@@ -364,31 +367,41 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 		if tycomp.IsFunction {
 			comparison = fmt.Sprintf("%s(%s, %s)", tycomp.Name, expectedvar, actualvar)
 		}
-	} else if tyname == "error" {
-		// Special case for errors: just compare nilness.
-		comparison = fmt.Sprintf("((%s == nil) == (%s == nil))", expectedvar, actualvar)
 	}
 
 	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
 }
 
-// Indent every non-blank line by the given number of tabs.
-func indentLines(s string, indent string) string {
-	lines := strings.Split(s, "\n")
-	indented := indent + strings.Join(lines, "\n"+indent)
-	return strings.Replace(indented, indent+"\n", "\n", -1)
+// Default comparisons for builtin types.
+func defaultComparison(tyname string) string {
+	if tyname == "error" {
+		// Special case for errors: just compare nilness.
+		return "((%s == nil) == (%s == nil))"
+	}
+
+	// For everything else, use reflect.DeepEqual
+	return "reflect.DeepEqual(%s, %s)"
 }
 
-// Produce unique names for function arguments. These do not clash
-// with names produced by funcRetNames.
+/// TYPE-DIRECTED VARIABLE NAMING
+
+// Produce unique variable names for function arguments. These do not
+// clash with names produced by funcExpectedNames or funcActualNames.
 func funcArgNames(function Function) []string {
 	return typeListNames("arg", function.Parameters)
 }
 
-// Produce unique names for function returns. These do not clash with
-// names produced by funcArgNames.
-func funcRetNames(prefix string, function Function) []string {
-	return typeListNames(prefix, function.Returns)
+// Produce unique variable names for actual function returns. These do
+// not clash with names produced by funcArgNames or funcExpectedNames.
+func funcActualNames(function Function) []string {
+	return typeListNames("actual", function.Returns)
+}
+
+// Produce unique variable names for expected function returns. These
+// do not clash with names produced by funcArgNames or
+// funcActualNames.
+func funcExpectedNames(function Function) []string {
+	return typeListNames("expected", function.Returns)
 }
 
 // Produce names for variables given a list of types.
@@ -415,21 +428,15 @@ func typeNameToVarName(pref string, ty Type) string {
 	f := func(r rune) rune {
 		if unicode.IsLetter(r) {
 			return r
-		} else {
-			return -1
 		}
+		return -1
 	}
 
 	name := strings.Map(f, ty.ToString())
 
 	// More pleasing capitalisation.
 	for i, r := range name {
-		if pref == "" && unicode.IsUpper(r) {
-			name = string(unicode.ToLower(r)) + name[i+1:]
-		} else if pref != "" && unicode.IsLower(r) {
-			name = string(unicode.ToUpper(r)) + name[i+1:]
-		}
-
+		name = string(unicode.ToUpper(r)) + name[i+1:]
 		break
 	}
 

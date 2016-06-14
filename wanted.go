@@ -99,13 +99,10 @@ func WantedFuzzersFromAST(theAST *ast.File) (wanteds []WantedFuzzer, errs []erro
 // wanted fuzzer may occur in a comment group, and the first special
 // comment must be the "@fuzz interface:" line; special comments in a
 // group before this are ignored.
+//
+// The boolean return indicates whether any fuzzers were found: if
+// not, the error isn't particularly meaningful.
 func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error, bool) {
-	if group == nil {
-		return WantedFuzzer{}, errors.New("CommentGroup is nil."), false
-	}
-
-	comments := group.List
-
 	fuzzer := WantedFuzzer{
 		InterfaceName:  "",
 		Reference:      Function{},
@@ -114,73 +111,39 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error,
 		Generator:      make(map[string]Generator),
 		GeneratorState: "",
 	}
+
+	if group == nil {
+		return fuzzer, errors.New("CommentGroup is nil"), false
+	}
+
+	// 'fuzzing' indicates whether we've found the start of a
+	// special comment or not. If not, just look for "@fuzz
+	// interface" and ignore everything else.
 	fuzzing := false
 
-	for _, comment := range comments {
+	for _, comment := range group.List {
 		lines := splitLines(comment.Text)
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 
-			// Either we have found the start of a fuzzer description
-			// or not; and if not all we do is look for it.
-			if !fuzzing {
+			var err error
+			if fuzzing {
+				err = parseLine(line, &fuzzer)
+			} else {
 				// "@fuzz interface:"
 				suff, ok := matchPrefix(line, "@fuzz interface:")
-				if ok {
-					iface, err := parseFuzzInterface(suff)
-					if err != nil {
-						return WantedFuzzer{}, err, true
-					}
-					fuzzer.InterfaceName = iface
-					fuzzing = true
-				}
-			} else {
-				// "@known correct:"
-				suff, ok := matchPrefix(line, "@known correct:")
-				if ok {
-					fundecl, returnsValue, err := parseKnownCorrect(suff)
-					if err != nil {
-						return WantedFuzzer{}, err, true
-					}
-					retty := BasicType(fuzzer.InterfaceName)
-					fundecl.Returns = []Type{&retty}
-					fuzzer.Reference = fundecl
-					fuzzer.ReturnsValue = returnsValue
+				if !ok {
 					continue
 				}
 
-				// "@comparison:"
-				suff, ok = matchPrefix(line, "@comparison:")
-				if ok {
-					tyname, fundecl, err := parseComparison(suff)
-					if err != nil {
-						return WantedFuzzer{}, err, true
-					}
-					fuzzer.Comparison[tyname.ToString()] = fundecl
-					continue
-				}
+				var name string
+				name, err = parseFuzzInterface(suff)
+				fuzzer.InterfaceName = name
+				fuzzing = true
+			}
 
-				// "@generator:"
-				suff, ok = matchPrefix(line, "@generator:")
-				if ok {
-					tyname, genfunc, stateful, err := parseGenerator(suff)
-					if err != nil {
-						return WantedFuzzer{}, err, true
-					}
-					fuzzer.Generator[tyname.ToString()] = Generator{IsStateful: stateful, Name: genfunc}
-					continue
-				}
-
-				// "@generator state:"
-				suff, ok = matchPrefix(line, "@generator state:")
-				if ok {
-					state, err := parseGeneratorState(suff)
-					if err != nil {
-						return WantedFuzzer{}, err, true
-					}
-					fuzzer.GeneratorState = state
-					continue
-				}
+			if err != nil {
+				return fuzzer, err, true
 			}
 		}
 	}
@@ -188,7 +151,60 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) (WantedFuzzer, error,
 	if fuzzing {
 		return fuzzer, nil, false
 	}
-	return WantedFuzzer{}, errors.New("No fuzzer found in group."), false
+	return fuzzer, errors.New("no fuzzer found in group"), false
+}
+
+// Parse a line in a comment. If this is a special comment, handle it
+// and mutate the wanted fuzzer; if not, skip over.
+func parseLine(line string, fuzzer *WantedFuzzer) error {
+	// "@known correct:"
+	suff, ok := matchPrefix(line, "@known correct:")
+	if ok {
+		fundecl, returnsValue, err := parseKnownCorrect(suff)
+		if err != nil {
+			return err
+		}
+
+		retty := BasicType(fuzzer.InterfaceName)
+		fundecl.Returns = []Type{&retty}
+		fuzzer.Reference = fundecl
+		fuzzer.ReturnsValue = returnsValue
+	}
+
+	// "@comparison:"
+	suff, ok = matchPrefix(line, "@comparison:")
+	if ok {
+		tyname, fundecl, err := parseComparison(suff)
+		if err != nil {
+			return err
+		}
+
+		fuzzer.Comparison[tyname.ToString()] = fundecl
+	}
+
+	// "@generator:"
+	suff, ok = matchPrefix(line, "@generator:")
+	if ok {
+		tyname, genfunc, stateful, err := parseGenerator(suff)
+		if err != nil {
+			return err
+		}
+
+		fuzzer.Generator[tyname.ToString()] = Generator{IsStateful: stateful, Name: genfunc}
+	}
+
+	// "@generator state:"
+	suff, ok = matchPrefix(line, "@generator state:")
+	if ok {
+		state, err := parseGeneratorState(suff)
+		if err != nil {
+			return err
+		}
+
+		fuzzer.GeneratorState = state
+	}
+
+	return nil
 }
 
 // Parse a "@fuzz interface:"
@@ -204,9 +220,9 @@ func parseFuzzInterface(line string) (string, error) {
 	name, rest = parseName(line)
 
 	if name == "" {
-		err = fmt.Errorf("Expected a name in '%s'", line)
+		err = fmt.Errorf("expected a name in '%s'", line)
 	} else if rest != "" {
-		err = fmt.Errorf("Unexpected left over input in '%s' (got '%s')", line, rest)
+		err = fmt.Errorf("unexpected left over input in '%s' (got '%s')", line, rest)
 	}
 
 	return name, err
@@ -216,38 +232,31 @@ func parseFuzzInterface(line string) (string, error) {
 //
 // SYNTAX: [&] FunctionName [ArgType1 ... ArgTypeN]
 func parseKnownCorrect(line string) (Function, bool, error) {
-	var (
-		function     Function
-		returnsValue bool
-		rest         string
-		err          error
-	)
+	var function Function
 
 	if len(line) == 0 {
-		return Function{}, false, errors.New("@known correct has empty argument")
+		return function, false, errors.New("@known correct has empty argument")
 	}
 
 	// [&]
-	if line[0] == '&' {
-		line = strings.TrimLeftFunc(line[1:], unicode.IsSpace)
-		returnsValue = true
-	}
+	rest, returnsValue := matchPrefix(line, "&")
 
 	// FunctionName
 	if len(line) == 0 {
-		return Function{}, false, errors.New("@known correct must have a function name")
+		return function, false, errors.New("@known correct must have a function name")
 	}
 
-	function.Name, rest = parseName(line)
+	function.Name, rest = parseName(rest)
 
 	// [ArgType1 ... ArgTypeN]
 	var args []Type
 	for rest != "" {
 		var argty Type
+		var err error
 		argty, rest, err = parseType(rest)
 
 		if err != nil {
-			return Function{}, false, err
+			return function, false, err
 		}
 
 		args = append(args, argty)
@@ -261,52 +270,39 @@ func parseKnownCorrect(line string) (Function, bool, error) {
 //
 // SYNTAX: (Type:FunctionName | FunctionName Type)
 func parseComparison(line string) (Type, EitherFunctionOrMethod, error) {
-	var (
-		ty         Type
-		funcOrMeth EitherFunctionOrMethod
-		err        error
-		rest       string
-	)
+	funcOrMeth, rest, err := parseFunctionOrMethod(line)
 
-	funcOrMeth, rest, err = parseFunctionOrMethod(line)
-
-	if err == nil && rest == "" {
-		ty = funcOrMeth.Type
-	} else if rest != "" {
-		err = fmt.Errorf("Unexpected left over input in '%s' (got '%s')", line, rest)
+	if err != nil {
+		return nil, funcOrMeth, err
+	}
+	if rest != "" {
+		return nil, funcOrMeth, fmt.Errorf("unexpected left over input in '%s' (got '%s')", line, rest)
 	}
 
-	return ty, funcOrMeth, err
+	return funcOrMeth.Type, funcOrMeth, err
 }
 
 // Parse a "@generator:"
 //
 // SYNTAX: [!] FunctionName Type
 func parseGenerator(line string) (Type, string, bool, error) {
-	var (
-		ty       Type
-		name     string
-		stateful bool
-		err      error
-		rest     string
-	)
-
 	// [!]
-	if line[0] == '!' {
-		line = strings.TrimLeftFunc(line[1:], unicode.IsSpace)
-		stateful = true
-	}
+	rest, stateful := matchPrefix(line, "!")
 
-	name, rest = parseName(line)
+	// FunctionName
+	var name string
+	name, rest = parseName(rest)
 
 	if name == "" {
-		err = fmt.Errorf("Expected a name in '%s'", line)
-	} else {
-		ty, rest, err = parseType(rest)
+		return nil, name, stateful, fmt.Errorf("expected a name in '%s'", line)
+	}
 
-		if rest != "" {
-			err = fmt.Errorf("Unexpected left over input in '%s' (got '%s')", line, rest)
-		}
+	var err error
+	var ty Type
+	ty, rest, err = parseType(rest)
+
+	if rest != "" {
+		err = fmt.Errorf("unexpected left over input in '%s' (got '%s')", line, rest)
 	}
 
 	return ty, name, stateful, err
@@ -320,7 +316,7 @@ func parseGenerator(line string) (Type, string, bool, error) {
 // SYNTAX: Expression
 func parseGeneratorState(line string) (string, error) {
 	if line == "" {
-		return "", fmt.Errorf("Expected an initial state")
+		return "", fmt.Errorf("expected an initial state")
 	}
 
 	return line, nil
@@ -436,7 +432,7 @@ func parseType(s string) (Type, string, error) {
 		return parseType(noParens)
 	}
 
-	return nil, s, fmt.Errorf("Mismatched parentheses in '%s'", s)
+	return nil, s, fmt.Errorf("mismatched parentheses in '%s'", s)
 }
 
 // Helper function for parsing a unary type operator: [], chan, or *.
@@ -453,7 +449,7 @@ func parseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error)
 	if parenOk {
 		innerTy, rest, err = parseType(noParens)
 	} else {
-		err = fmt.Errorf("Mismatched parentheses in '%s'", orig)
+		err = fmt.Errorf("mismatched parentheses in '%s'", orig)
 	}
 
 	return tycon(innerTy), rest, err

@@ -115,7 +115,7 @@ type PointerType struct {
 	TargetType Type
 }
 
-// QualifiedTyoe is the type of types with a package name qualfiier.
+// QualifiedType is the type of types with a package name qualfiier.
 type QualifiedType struct {
 	// The package name
 	Package string
@@ -155,7 +155,7 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 	var interfaces []Interface
 
 	ast.Inspect(theAST, func(node ast.Node) bool {
-		iface, err := InterfaceFromNode(node)
+		iface, err := interfaceFromNode(node)
 		if err == nil {
 			interfaces = append(interfaces, iface)
 		}
@@ -165,121 +165,132 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 	return interfaces
 }
 
-// InterfaceFromNode tries to extract an interface from an ast.Node.
-func InterfaceFromNode(node ast.Node) (Interface, error) {
+// interfaceFromNode tries to extract an interface from an ast.Node.
+func interfaceFromNode(node ast.Node) (Interface, error) {
 	if node == nil {
-		return Interface{}, errors.New("Node is nil.")
+		return Interface{}, errors.New("Node is nil")
 	}
 	switch gendecl := node.(type) {
 	case *ast.GenDecl:
-		iface, err := InterfaceFromGenDecl(gendecl)
+		iface, err := interfaceFromGenDecl(gendecl)
 		return iface, err
 	}
-	return Interface{}, errors.New("Node is not a GenDecl.")
+	return Interface{}, errors.New("Node is not a GenDecl")
 }
 
-// InterfaceFromGenDecl tries to extract an interface from an
+// interfaceFromGenDecl tries to extract an interface from an
 // *ast.GenDecl.
-func InterfaceFromGenDecl(gendecl *ast.GenDecl) (Interface, error) {
+func interfaceFromGenDecl(gendecl *ast.GenDecl) (Interface, error) {
 	if gendecl == nil {
-		return Interface{}, errors.New("GenDecl is nil.")
+		return Interface{}, errors.New("GenDecl is nil")
 	}
 	if gendecl.Tok != token.TYPE {
-		return Interface{}, errors.New("GenDecl is not a type declaration.")
+		return Interface{}, errors.New("GenDecl is not a type declaration")
 	}
 	if gendecl.Specs == nil {
-		return Interface{}, errors.New("GenDecl contains no specifications.")
+		return Interface{}, errors.New("GenDecl contains no specifications")
 	}
 
 	// Will there ever be more than one Spec? I don't know. To be
 	// safe, loop over them and return the first interface.
 	for _, spec := range gendecl.Specs {
-		iface, err := InterfaceFromSpec(spec)
+		iface, err := interfaceFromSpec(spec)
 		if err == nil {
-			return iface, nil
+			return iface, err
 		}
 	}
 
-	return Interface{}, errors.New("GenDecl contains no type specifications.")
+	return Interface{}, errors.New("GenDecl contains no type specifications")
 }
 
-// InterfaceFromSpec tries to extract an interface from an ast.Spec.
-func InterfaceFromSpec(spec ast.Spec) (Interface, error) {
+// interfaceFromSpec tries to extract an interface from an ast.Spec.
+func interfaceFromSpec(spec ast.Spec) (Interface, error) {
 	if spec == nil {
-		return Interface{}, errors.New("Spec is nil.")
+		return Interface{}, errors.New("Spec is nil")
 	}
 
 	switch tyspec := spec.(type) {
 	case *ast.TypeSpec:
-		iface, err := InterfaceFromTypeSpec(tyspec)
+		iface, err := interfaceFromTypeSpec(tyspec)
 		return iface, err
 	}
 
-	return Interface{}, errors.New("Spec is not a TypeSpec.")
+	return Interface{}, errors.New("Spec is not a TypeSpec")
 }
 
-// InterfaceFromTypeSpec tries to extract an interface from an
+// interfaceFromTypeSpec tries to extract an interface from an
 // *ast.TypeSpec.
-func InterfaceFromTypeSpec(tyspec *ast.TypeSpec) (Interface, error) {
+func interfaceFromTypeSpec(tyspec *ast.TypeSpec) (Interface, error) {
 	if tyspec == nil {
-		return Interface{}, errors.New("TypeSpec is nil.")
+		return Interface{}, errors.New("TypeSpec is nil")
 	}
 
 	switch ifacety := tyspec.Type.(type) {
 	case *ast.InterfaceType:
 		name := tyspec.Name.Name
-		var functions []Function
-		if ifacety.Methods != nil {
-			for _, field := range ifacety.Methods.List {
-				if field.Names == nil || len(field.Names) < 1 {
-					continue
-				}
-
-				// Can there be more than one name?
-				obj := field.Names[0].Obj
-
-				if obj == nil || obj.Decl == nil {
-					continue
-				}
-
-				switch fundecl := obj.Decl.(type) {
-				case *ast.Field:
-					function, err := FunctionFromField(field.Names[0].Name, fundecl)
-
-					if err == nil {
-						functions = append(functions, function)
-					}
-				}
-			}
-		}
-		return Interface{Name: name, Functions: functions}, nil
+		functions, err := functionsFromInterfaceType(ifacety)
+		return Interface{Name: name, Functions: functions}, err
 	}
 
-	return Interface{}, errors.New("TypeSpec is not an interface type.")
+	return Interface{}, errors.New("TypeSpec is not an interface type")
 }
 
-// FunctionFromField tries to extract a function from an *ast.Field.
-func FunctionFromField(name string, field *ast.Field) (Function, error) {
+// functionsFromInterfaceType tries to extract function declarations
+// from an *ast.InterfaceType.
+func functionsFromInterfaceType(ifacety *ast.InterfaceType) ([]Function, error) {
+	if ifacety.Methods == nil {
+		return []Function{}, errors.New("Interface method slice is nil")
+	}
+
+	var functions []Function
+	for _, field := range ifacety.Methods.List {
+		if field.Names == nil || len(field.Names) == 0 {
+			continue
+		}
+
+		// Can there be more than one name?
+		obj := field.Names[0].Obj
+
+		if obj == nil || obj.Decl == nil {
+			continue
+		}
+
+		switch fundecl := obj.Decl.(type) {
+		case *ast.Field:
+			function, err := functionFromField(field.Names[0].Name, fundecl)
+
+			if err != nil {
+				return functions, err
+			}
+			functions = append(functions, function)
+		}
+	}
+
+	return functions, nil
+}
+
+// functionFromField tries to extract a function from an *ast.Field.
+func functionFromField(name string, field *ast.Field) (Function, error) {
 	if field == nil {
-		return Function{}, errors.New("Field is nil.")
+		return Function{}, errors.New("Field is nil")
 	}
 	if field.Type == nil {
-		return Function{}, errors.New("Field type is nil.")
+		return Function{}, errors.New("Field type is nil")
 	}
 
 	switch functype := field.Type.(type) {
 	case *ast.FuncType:
-		function, err := FunctionFromFuncType(name, functype)
+		function, err := functionFromFuncType(name, functype)
 		return function, err
 	}
 
-	return Function{}, errors.New("Type is not a function type.")
+	return Function{}, errors.New("Type is not a function type")
 }
 
-// FunctionFromFuncType tries to extract a function from an *ast.FuncType.
-func FunctionFromFuncType(name string, funty *ast.FuncType) (Function, error) {
+// functionFromFuncType tries to extract a function from an *ast.FuncType.
+func functionFromFuncType(name string, funty *ast.FuncType) (Function, error) {
 	if funty == nil {
-		return Function{}, errors.New("FuncType is nil.")
+		return Function{}, errors.New("FuncType is nil")
 	}
 
 	parameters := typeList(funty.Params)

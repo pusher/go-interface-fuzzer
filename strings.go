@@ -62,3 +62,10 @@ func takeWhileIn(s, allowed string) (string, string) {
 
 	return s, ""
 }
+
+// Indent every non-blank line by the given number of tabs.
+func indentLines(s string, indent string) string {
+	lines := strings.Split(s, "\n")
+	indented := indent + strings.Join(lines, "\n"+indent)
+	return strings.Replace(indented, indent+"\n", "\n", -1)
+}

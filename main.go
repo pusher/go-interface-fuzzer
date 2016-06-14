@@ -10,6 +10,86 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Turn a collection of errors into a single error message with a list
+// of errors.
+func errorList(message string, errs []error) string {
+	var errstrs []string
+	for _, err := range errs {
+		errstrs = append(errstrs, err.Error())
+	}
+	return (message + ":\n\t- " + strings.Join(errstrs, "\n\t- "))
+}
+
+// Reconcile the wanted fuzzers with the interfaces. Complain if there
+// are any wanted fuzzers for which the interface decl isn't in the
+// file.
+func reconcileFuzzers(interfaces []Interface, wanteds []WantedFuzzer) ([]Fuzzer, []error) {
+	var fuzzers []Fuzzer
+	var errs []error
+
+	for _, wanted := range wanteds {
+		var found bool
+
+		for _, iface := range interfaces {
+			if wanted.InterfaceName != iface.Name {
+				continue
+			}
+
+			fuzzer := Fuzzer{Interface: iface, Wanted: wanted}
+
+			// Check we don't already have a fuzzer for
+			// this interface.
+			for _, existingFuzzer := range fuzzers {
+				if existingFuzzer.Interface.Name == iface.Name {
+					errs = append(errs, fmt.Errorf("Already have a fuzzer for '%s'.", wanted.InterfaceName))
+				}
+			}
+
+			fuzzers = append(fuzzers, fuzzer)
+			found = true
+		}
+
+		if !found {
+			errs = append(errs, fmt.Errorf("Couldn't find interface '%s' in this file.", wanted.InterfaceName))
+		}
+	}
+
+	return fuzzers, errs
+}
+
+// Generate code for the fuzzers.
+func codeGen(fuzzers []Fuzzer) (string, []error) {
+	var code string
+	var errs []error
+
+	codeGenErr := func(fuzzer Fuzzer, err error) error {
+		return fmt.Errorf("error occurred whilst generating code for '%s': %s.", fuzzer.Interface.Name, err)
+	}
+
+	for _, fuzzer := range fuzzers {
+		testCase, testCaseErr := CodegenTestCase(fuzzer)
+		withDefaultReference, withDefaultReferenceErr := CodegenWithDefaultReference(fuzzer)
+		withReference, withReferenceErr := CodegenWithReference(fuzzer)
+
+		if testCaseErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, testCaseErr))
+			continue
+		}
+		if withDefaultReferenceErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, withDefaultReferenceErr))
+			continue
+		}
+		if withReferenceErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, withReferenceErr))
+			continue
+		}
+
+		code = code + fmt.Sprintf("// %s\n\n%s\n\n%s\n\n%s\n", fuzzer.Interface.Name, testCase, withDefaultReference, withReference)
+	}
+
+	return code, errs
+}
+
 func main() {
 	app := cli.NewApp()
 
@@ -34,73 +114,27 @@ func main() {
 			return cli.NewExitError("Could not parse file.", 1)
 		}
 
+		// Extract all the interfaces
 		interfaces := InterfacesFromAST(parsedFile)
 
-		wanteds, errs := WantedFuzzersFromAST(parsedFile)
-
-		// Print errors
-		if len(errs) > 0 {
-			var errstrs []string
-			for _, err := range errs {
-				errstrs = append(errstrs, err.Error())
-			}
-			return cli.NewExitError("Found errors while extracting interface definitions:\n\t- "+strings.Join(errstrs, "\n\t- "), 1)
+		// Extract the wanted fuzzers
+		wanteds, werrs := WantedFuzzersFromAST(parsedFile)
+		if len(werrs) > 0 {
+			return cli.NewExitError(errorList("Found errors while extracting interface definitions", werrs), 1)
 		}
 
 		// Reconcile the wanteds with the interfaces.
-		var fuzzers []Fuzzer
-
-		for _, wanted := range wanteds {
-			var found bool
-
-			for _, iface := range interfaces {
-				if wanted.InterfaceName == iface.Name {
-					fuzzer := Fuzzer{Interface: iface, Wanted: wanted}
-
-					// Check we don't already have a fuzzer for this
-					// interface.
-					for _, existingFuzzer := range fuzzers {
-						if existingFuzzer.Interface.Name == iface.Name {
-							return cli.NewExitError(fmt.Sprintf("Already have a fuzzer for '%s'.", wanted.InterfaceName), 1)
-						}
-					}
-
-					fuzzers = append(fuzzers, fuzzer)
-					found = true
-				}
-			}
-
-			if !found {
-				return cli.NewExitError(fmt.Sprintf("Couldn't find interface '%s' in this file.", wanted.InterfaceName), 1)
-			}
+		fuzzers, ferrs := reconcileFuzzers(interfaces, wanteds)
+		if len(ferrs) > 0 {
+			return cli.NewExitError(errorList("Found errors while determining wanted fuzz testers", ferrs), 1)
 		}
 
 		// Codegen
-		codeGenErr := func(fuzzer Fuzzer, err error) *cli.ExitError {
-			msg := fmt.Sprintf("Error occurred whilst generating code for '%s': %s.", fuzzer.Interface.Name, err)
-			return cli.NewExitError(msg, 1)
+		code, cerrs := codeGen(fuzzers)
+		if len(cerrs) > 0 {
+			return cli.NewExitError(errorList("Found some errors while generating code", cerrs), 1)
 		}
-
-		for _, fuzzer := range fuzzers {
-			testCase, testCaseErr := CodegenTestCase(fuzzer)
-			withDefaultReference, withDefaultReferenceErr := CodegenWithDefaultReference(fuzzer)
-			withReference, withReferenceErr := CodegenWithReference(fuzzer)
-
-			if testCaseErr != nil {
-				return codeGenErr(fuzzer, testCaseErr)
-			}
-			if withDefaultReferenceErr != nil {
-				return codeGenErr(fuzzer, withDefaultReferenceErr)
-			}
-			if withReferenceErr != nil {
-				return codeGenErr(fuzzer, withReferenceErr)
-			}
-
-			fmt.Printf("// %s\n\n", fuzzer.Interface.Name)
-			fmt.Printf("%s\n\n", testCase)
-			fmt.Printf("%s\n\n", withDefaultReference)
-			fmt.Printf("%s\n", withReference)
-		}
+		fmt.Println(code)
 
 		return nil
 	}
