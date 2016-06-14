@@ -153,7 +153,8 @@ file and it will spit out the testing functions.
 
 All of the comments relating to one fuzzer must be in the same comment
 group, which is a collection of comments with no separating lines
-(even blank).
+(even blank). Multiple fuzzers can be defined in the same comment
+group, the `@fuzz interface` line starts a new fuzzer definition.
 
 Defaults
 --
