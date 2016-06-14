@@ -11,6 +11,36 @@ implementing the interface behaves the same.
 Usage
 ---
 
+### Command-line Flags
+
+```
+NAME:
+   go-interface-fuzzer - Generate fuzz tests for Go interfaces.
+
+USAGE:
+   go-interface-fuzzer [global options] command [command options] [arguments...]
+
+VERSION:
+   0.0.0
+
+COMMANDS:
+GLOBAL OPTIONS:
+   --complete, -c            Generate a complete source file, with package name and imports
+   --filename FILE, -f FILE  Use FILE as the file name when automatically resolving imports (defaults to the filename of the source fle)
+   --package NAME, -p NAME   Use NAME as the package name (defaults to the package of the source file)
+   --help, -h                show help
+   --version, -v             print the version
+```
+
+By default `go-interface-fuzzer` generates an incomplete fragment: no
+package name, no imports, just the three testing functions per
+interface. The `-c` flag can be given to generate a complete file. If
+the generated file will not be in the same package as the source file,
+the `-f` and `-p` options can be used to specify where.
+
+
+### Special Comments
+
 Firstly, you need to mark up the interface you want to generate a fuzz
 tester for. The minimum is just indicating that a fuzz tester should
 be generated for the interface, and how to produce a new value of the
@@ -120,6 +150,10 @@ type Store interface {
 Once you have your special comments, in which only `@fuzz interface`
 and `@known correct` is necessary, run `go-interface-fuzzer` on the
 file and it will spit out the testing functions.
+
+All of the comments relating to one fuzzer must be in the same comment
+group, which is a collection of comments with no separating lines
+(even blank).
 
 Defaults
 --

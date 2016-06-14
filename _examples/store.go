@@ -9,6 +9,14 @@ iterator or as a slice.
 
 package example
 
+import (
+	// stdlib imports
+	"rand"
+
+	// local imports
+	"model"
+)
+
 /*
 @fuzz interface: Store
 

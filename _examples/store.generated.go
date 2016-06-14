@@ -1,6 +1,16 @@
+package example
+
+import (
+	"fmt"
+	"model"
+	"rand"
+	"reflect"
+	"testing"
+)
+
 // Store
 
-func FuzzTestStore(makeTest (func(int) Store), t *testing.T) {
+func FuzzTestStore(makeTest func(int) Store, t *testing.T) {
 	rand := rand.New(rand.NewSource(0))
 
 	err := FuzzStore(makeTest, rand, 100)
@@ -10,7 +20,7 @@ func FuzzTestStore(makeTest (func(int) Store), t *testing.T) {
 	}
 }
 
-func FuzzStore(makeTest (func (int) Store), rand *rand.Rand, max uint) error {
+func FuzzStore(makeTest func(int) Store, rand *rand.Rand, max uint) error {
 	var (
 		argInt int
 	)
@@ -53,7 +63,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 1:
 			// Call the method on both implementations
 			var (
-				argModelID model.ID
+				argModelID      model.ID
 				argModelChannel model.Channel
 			)
 
@@ -73,7 +83,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 2:
 			// Call the method on both implementations
 			var (
-				argModelID model.ID
+				argModelID      model.ID
 				argModelChannel model.Channel
 			)
 
