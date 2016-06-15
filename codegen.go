@@ -45,7 +45,7 @@ func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 	}
 }`
 
-	return fmt.Sprintf(template, fuzzer.Interface.Name, generatorArgs(fuzzer)), nil
+	return fmt.Sprintf(template, fuzzer.Interface.Name, GeneratorArgs(fuzzer)), nil
 }
 
 // CodegenWithDefaultReference generates a function which will compare
@@ -81,7 +81,7 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 		ampersand = "&"
 	}
 
-	funcalls, err := makeFunctionCalls(fuzzer, fuzzer.Wanted.Reference, fuzzer.Wanted.Reference.Name, "makeTest")
+	funcalls, err := MakeFunctionCalls(fuzzer, fuzzer.Wanted.Reference, fuzzer.Wanted.Reference.Name, "makeTest")
 
 	if err != nil {
 		return "", err
@@ -90,7 +90,7 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 	body := fmt.Sprintf(
 		template,
 		fuzzer.Interface.Name,
-		generatorArgs(fuzzer),
+		GeneratorArgs(fuzzer),
 		fuzzer.Wanted.Reference.Name,
 		ampersand,
 		indentLines(funcalls, "\t"))
@@ -138,7 +138,7 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 	var actions []string
 	for i, function := range fuzzer.Interface.Functions {
 		caseTemplate := "case %[1]v:\n%s"
-		action, err := codegenFunctionTest(fuzzer, function)
+		action, err := CodegenFunctionTest(fuzzer, function)
 		if err != nil {
 			return "", err
 		}
@@ -163,7 +163,7 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 // codegenFunctionTest generate the code to declare and initialise
 // variables, call the method on both implementations, compare the
 // results, and bail out on error.
-func codegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
+func CodegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
 	// Format parameters:
 	//
 	// - code to declare variables + call functions (etc)
@@ -174,18 +174,18 @@ func codegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
 // And check for discrepancies.
 %[2]s`
 
-	funcalls, err := makeFunctionCalls(fuzzer, function, "reference."+function.Name, "test."+function.Name)
+	funcalls, err := MakeFunctionCalls(fuzzer, function, "reference."+function.Name, "test."+function.Name)
 	if err != nil {
 		return "", err
 	}
 
 	var checks []string
-	retsExpected := funcExpectedNames(function)
-	retsActual := funcActualNames(function)
+	retsExpected := FuncExpectedNames(function)
+	retsActual := FuncActualNames(function)
 	for i, ty := range function.Returns {
 		expected := retsExpected[i]
 		actual := retsActual[i]
-		check, err := makeValueComparison(fuzzer, expected, actual, ty, "inconsistent result in "+function.Name)
+		check, err := MakeValueComparison(fuzzer, expected, actual, ty, "inconsistent result in "+function.Name)
 		if err != nil {
 			return "", err
 		}
@@ -198,7 +198,7 @@ func codegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
 /// FUNCTION CALLS
 
 // Produce the generator arguments as a comma-separated list.
-func generatorArgs(fuzzer Fuzzer) string {
+func GeneratorArgs(fuzzer Fuzzer) string {
 	var args []string
 
 	for _, ty := range fuzzer.Wanted.Reference.Parameters {
@@ -213,7 +213,7 @@ func generatorArgs(fuzzer Fuzzer) string {
 //
 // Arguments are stored in variables arg0 ... argN. Return values in
 // variables reta0 ... retaN and retb0 ... retbN.
-func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
+func MakeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
 	// Format parameters:
 	//
 	// - first function name
@@ -246,21 +246,21 @@ func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (s
 		gens  []string
 	)
 
-	argNames := funcArgNames(function)
+	argNames := FuncArgNames(function)
 	for i, ty := range function.Parameters {
 		arg := argNames[i]
 
 		decls = append(decls, arg+" "+ty.ToString())
 		args = append(args, arg)
-		gen, err := makeTypeGenerator(fuzzer, arg, ty)
+		gen, err := MakeTypeGenerator(fuzzer, arg, ty)
 		if err != nil {
 			return "", err
 		}
 		gens = append(gens, gen)
 	}
 
-	retsExpected := funcExpectedNames(function)
-	retsActual := funcActualNames(function)
+	retsExpected := FuncExpectedNames(function)
+	retsActual := FuncActualNames(function)
 
 	body := fmt.Sprintf(
 		template,
@@ -289,7 +289,7 @@ func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (s
 
 // Produce some code to populate a given variable with a random value
 // of the named type, assuming a PRNG called 'rand' is in scope.
-func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
+func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	tyname := ty.ToString()
 
 	// If there's a provided generator, use that.
@@ -306,7 +306,7 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 
 	// If it's a type we can handle, supply a default generator.
 	var tygen string
-	tygen, ok = defaultGenerator(tyname)
+	tygen, ok = DefaultGenerator(tyname)
 	if ok {
 		return fmt.Sprintf("%s = %s", varname, tygen), nil
 	}
@@ -316,7 +316,7 @@ func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 }
 
 // Default generators for builtin types.
-func defaultGenerator(tyname string) (string, bool) {
+func DefaultGenerator(tyname string) (string, bool) {
 	generators := map[string]string{
 		"bool":       "rand.Intn(2) == 0",
 		"byte":       "byte(rand.Uint32())",
@@ -345,7 +345,7 @@ func defaultGenerator(tyname string) (string, bool) {
 
 // Produce some code to compare two values of the same type, returning
 // an error on discrepancy.
-func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) (string, error) {
+func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) (string, error) {
 	// Format parameters:
 	//
 	// - expected variable name
@@ -357,7 +357,7 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 }`
 
 	tyname := ty.ToString()
-	comparison := fmt.Sprintf(defaultComparison(tyname), expectedvar, actualvar)
+	comparison := fmt.Sprintf(DefaultComparison(tyname), expectedvar, actualvar)
 
 	// If there's a provided comparison, use that.
 	tycomp, ok := fuzzer.Wanted.Comparison[tyname]
@@ -373,7 +373,7 @@ func makeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 }
 
 // Default comparisons for builtin types.
-func defaultComparison(tyname string) string {
+func DefaultComparison(tyname string) string {
 	if tyname == "error" {
 		// Special case for errors: just compare nilness.
 		return "((%s == nil) == (%s == nil))"
@@ -387,30 +387,30 @@ func defaultComparison(tyname string) string {
 
 // Produce unique variable names for function arguments. These do not
 // clash with names produced by funcExpectedNames or funcActualNames.
-func funcArgNames(function Function) []string {
-	return typeListNames("arg", function.Parameters)
+func FuncArgNames(function Function) []string {
+	return TypeListNames("arg", function.Parameters)
 }
 
 // Produce unique variable names for actual function returns. These do
 // not clash with names produced by funcArgNames or funcExpectedNames.
-func funcActualNames(function Function) []string {
-	return typeListNames("actual", function.Returns)
+func FuncActualNames(function Function) []string {
+	return TypeListNames("actual", function.Returns)
 }
 
 // Produce unique variable names for expected function returns. These
 // do not clash with names produced by funcArgNames or
 // funcActualNames.
-func funcExpectedNames(function Function) []string {
-	return typeListNames("expected", function.Returns)
+func FuncExpectedNames(function Function) []string {
+	return TypeListNames("expected", function.Returns)
 }
 
 // Produce names for variables given a list of types.
-func typeListNames(prefix string, tylist []Type) []string {
+func TypeListNames(prefix string, tylist []Type) []string {
 	var names []string
 
 	for i, ty := range tylist {
 		// Generate a name for this variable based on the type.
-		name := typeNameToVarName(prefix, ty)
+		name := TypeNameToVarName(prefix, ty)
 		for _, prior := range names {
 			if name == prior {
 				name = name + strconv.Itoa(i)
@@ -424,7 +424,7 @@ func typeListNames(prefix string, tylist []Type) []string {
 }
 
 // Produce a (possibly not unique) variable name from a type name.
-func typeNameToVarName(pref string, ty Type) string {
+func TypeNameToVarName(pref string, ty Type) string {
 	name := filter(ty.ToString(), unicode.IsLetter)
 
 	// More pleasing capitalisation.

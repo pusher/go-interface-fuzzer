@@ -159,7 +159,7 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 			name := tyspec.Name.Name
 			switch ifacety := tyspec.Type.(type) {
 			case *ast.InterfaceType:
-				functions, err := functionsFromInterfaceType(*ifacety)
+				functions, err := FunctionsFromInterfaceType(*ifacety)
 				iface := Interface{Name: name, Functions: functions}
 				if err == nil {
 					interfaces = append(interfaces, iface)
@@ -179,9 +179,9 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 	return interfaces
 }
 
-// functionsFromInterfaceType tries to extract function declarations
+// FunctionsFromInterfaceType tries to extract function declarations
 // from an ast.InterfaceType.
-func functionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
+func FunctionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 	if ifacety.Methods == nil {
 		return []Function{}, errors.New("Interface method slice is nil")
 	}
@@ -205,8 +205,8 @@ func functionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 			ast.Inspect(fundecl, func(node ast.Node) bool {
 				switch funty := node.(type) {
 				case *ast.FuncType:
-					parameters := typeListFromFieldList(*funty.Params)
-					returns := typeListFromFieldList(*funty.Results)
+					parameters := TypeListFromFieldList(*funty.Params)
+					returns := TypeListFromFieldList(*funty.Results)
 					function := Function{Name: name, Parameters: parameters, Returns: returns}
 					functions = append(functions, function)
 					return false
@@ -220,15 +220,15 @@ func functionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 	return functions, nil
 }
 
-// Get the list of type names from an ast.FieldList. Names are not
-// returned.
-func typeListFromFieldList(fields ast.FieldList) []Type {
+// TypeListFromFieldList gets the list of type names from an
+// ast.FieldList. Names are not returned.
+func TypeListFromFieldList(fields ast.FieldList) []Type {
 	var types []Type
 
 	ast.Inspect(&fields, func(node ast.Node) bool {
 		switch tyexpr := node.(type) {
 		case ast.Expr:
-			ty := typeFromTypeExpr(tyexpr)
+			ty := TypeFromTypeExpr(tyexpr)
 			if ty != nil {
 				types = append(types, ty)
 			}
@@ -241,30 +241,31 @@ func typeListFromFieldList(fields ast.FieldList) []Type {
 	return types
 }
 
-// Get a type from an ast.Expr which is known to represent a type.
-func typeFromTypeExpr(ty ast.Expr) Type {
+// TypeFromTypeExpr gets a type from an ast.Expr which is known to
+// represent a type.
+func TypeFromTypeExpr(ty ast.Expr) Type {
 	switch x := ty.(type) {
 	case *ast.Ident:
 		// Type name
 		ty := BasicType(x.Name)
 		return &ty
 	case *ast.ArrayType:
-		ty := ArrayType{ElementType: typeFromTypeExpr(x.Elt)}
+		ty := ArrayType{ElementType: TypeFromTypeExpr(x.Elt)}
 		return &ty
 	case *ast.ChanType:
-		ty := ChanType{ElementType: typeFromTypeExpr(x.Value)}
+		ty := ChanType{ElementType: TypeFromTypeExpr(x.Value)}
 		return &ty
 	case *ast.MapType:
-		ty := MapType{KeyType: typeFromTypeExpr(x.Key), ValueType: typeFromTypeExpr(x.Value)}
+		ty := MapType{KeyType: TypeFromTypeExpr(x.Key), ValueType: TypeFromTypeExpr(x.Value)}
 		return &ty
 	case *ast.StarExpr:
-		ty := PointerType{TargetType: typeFromTypeExpr(x.X)}
+		ty := PointerType{TargetType: TypeFromTypeExpr(x.X)}
 		return &ty
 	case *ast.SelectorExpr:
 		// x.X is an expression which resolves to the package
 		// name and x.Sel is the "selector", which is the
 		// actual type name.
-		pkg := typeFromTypeExpr(x.X).ToString()
+		pkg := TypeFromTypeExpr(x.X).ToString()
 		innerTy := BasicType(x.Sel.Name)
 		ty := QualifiedType{Package: pkg, Type: &innerTy}
 		return &ty
