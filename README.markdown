@@ -26,7 +26,7 @@ VERSION:
 COMMANDS:
 GLOBAL OPTIONS:
    --complete, -c            Generate a complete source file, with package name and imports
-   --filename FILE, -f FILE  Use FILE as the file name when automatically resolving imports (defaults to the filename of the source fle)
+   --filename FILE, -f FILE  Use FILE as the file name when automatically resolving imports (defaults to the filename of the source file)
    --package NAME, -p NAME   Use NAME as the package name (defaults to the package of the source file)
    --no-test-case, -T        Do not generate the TestFuzz... function
    --no-default, -D          Do not generate the Fuzz... function, implies no-test-case

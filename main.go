@@ -71,7 +71,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:        "filename, f",
-			Usage:       "Use `FILE` as the file name when automatically resolving imports (defaults to the filename of the source fle)",
+			Usage:       "Use `FILE` as the file name when automatically resolving imports (defaults to the filename of the source file)",
 			Destination: &opts.Filename,
 		},
 		cli.StringFlag{
