@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -60,6 +61,7 @@ func reconcileFuzzers(interfaces []Interface, wanteds []WantedFuzzer) ([]Fuzzer,
 func main() {
 	var opts CodeGenOptions
 	var ifaceonly string
+	var writeout bool
 
 	app := cli.NewApp()
 	app.Name = "go-interface-fuzzer"
@@ -94,6 +96,11 @@ func main() {
 			Name:        "interface",
 			Usage:       "Ignore special comments and just generate a fuzz tester for the named interface, implies no-default",
 			Destination: &ifaceonly,
+		},
+		cli.BoolFlag{
+			Name:        "output, o",
+			Usage:       "Write the output to the filename given by the -f flag, which must be specified",
+			Destination: &writeout,
 		},
 	}
 	app.Action = func(c *cli.Context) error {
@@ -133,6 +140,9 @@ func main() {
 
 		// Codegen
 		if opts.Filename == "" {
+			if writeout {
+				return cli.NewExitError("When using -o a filename MUST be given to -f", 1)
+			}
 			opts.Filename = filename
 		}
 		if opts.PackageName == "" {
@@ -142,7 +152,15 @@ func main() {
 		if len(cerrs) > 0 {
 			return cli.NewExitError(errorList("Found some errors while generating code", cerrs), 1)
 		}
-		fmt.Println(code)
+
+		if writeout {
+			err := ioutil.WriteFile(opts.Filename, []byte(code), 0644)
+			if err != nil {
+				return cli.NewExitError(err.Error(), 1)
+			}
+		} else {
+			fmt.Println(code)
+		}
 
 		return nil
 	}

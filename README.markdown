@@ -31,6 +31,7 @@ GLOBAL OPTIONS:
    --no-test-case, -T        Do not generate the TestFuzz... function
    --no-default, -D          Do not generate the Fuzz... function, implies no-test-case
    --interface value         Ignore special comments and just generate a fuzz tester for the named interface, implies no-default
+   --output, -o              Write the output to the filename given by the -f flag, which must be specified
    --help, -h                show help
    --version, -v             print the version
 ```

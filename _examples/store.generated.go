@@ -132,4 +132,3 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 	return nil
 }
-
