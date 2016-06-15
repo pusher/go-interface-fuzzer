@@ -405,6 +405,7 @@ func ParseType(s string) (Type, string, error) {
 			}
 			return ParseUnaryType(tycon, keyRest[1:], s)
 		}
+		return nil, s, fmt.Errorf("Mismatched brackets in '%s'", s)
 	}
 
 	// Pointer type
