@@ -42,6 +42,11 @@ interface. The `-c` flag can be given to generate a complete file. If
 the generated file will not be in the same package as the source file,
 the `-f` and `-p` options can be used to specify where.
 
+The generated code in the _examples directory is produced by
+
+```bash
+go-interface-fuzzer -c -o -f _examples/FOO.generated.go _examples/FOO.go
+```
 
 ### Special Comments
 
