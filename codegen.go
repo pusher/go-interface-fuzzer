@@ -25,6 +25,13 @@ type CodeGenOptions struct {
 	// command-line arguments, defaults to the package of the
 	// source file.
 	PackageName string
+
+	// Avoid generating the FuzzTest...(..., *testing.T) function.
+	NoTestCase bool
+
+	// Avoid generating the Fuzz...(..., *rand.Rand, uint)
+	// function. This implies NoTestCase.
+	NoDefaultFuzz bool
 }
 
 // Fuzzer is a pair of an interface declaration and a description of
@@ -50,24 +57,34 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 	}
 
 	for _, fuzzer := range fuzzers {
-		testCase, testCaseErr := CodegenTestCase(fuzzer)
-		withDefaultReference, withDefaultReferenceErr := CodegenWithDefaultReference(fuzzer)
-		withReference, withReferenceErr := CodegenWithReference(fuzzer)
+		code = code + "// " + fuzzer.Interface.Name + "\n\n"
 
-		if testCaseErr != nil {
-			errs = append(errs, codeGenErr(fuzzer, testCaseErr))
-			continue
-		}
-		if withDefaultReferenceErr != nil {
-			errs = append(errs, codeGenErr(fuzzer, withDefaultReferenceErr))
-			continue
-		}
-		if withReferenceErr != nil {
-			errs = append(errs, codeGenErr(fuzzer, withReferenceErr))
-			continue
+		// FuzzTest...(... *testing.T)
+		if !(options.NoTestCase || options.NoDefaultFuzz) {
+			generated, err := CodegenTestCase(fuzzer)
+			if err != nil {
+				errs = append(errs, codeGenErr(fuzzer, err))
+				continue
+			}
+			code = code + generated + "\n\n"
 		}
 
-		code = code + fmt.Sprintf("// %s\n\n%s\n\n%s\n\n%s\n", fuzzer.Interface.Name, testCase, withDefaultReference, withReference)
+		// Fuzz...(... *rand.Rand, uint)
+		if !options.NoDefaultFuzz {
+			generated, err := CodegenWithDefaultReference(fuzzer)
+			if err != nil {
+				errs = append(errs, codeGenErr(fuzzer, err))
+				continue
+			}
+			code = code + generated + "\n\n"
+		}
+
+		generated, err := CodegenWithReference(fuzzer)
+		if err != nil {
+			errs = append(errs, codeGenErr(fuzzer, err))
+			continue
+		}
+		code = code + generated + "\n\n"
 	}
 
 	code, err := FixImports(options, code)

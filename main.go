@@ -79,6 +79,16 @@ func main() {
 			Usage:       "Use `NAME` as the package name (defaults to the package of the source file)",
 			Destination: &opts.PackageName,
 		},
+		cli.BoolFlag{
+			Name:        "no-test-case, T",
+			Usage:       "Do not generate the TestFuzz... function",
+			Destination: &opts.NoTestCase,
+		},
+		cli.BoolFlag{
+			Name:        "no-default, D",
+			Usage:       "Do not generate the Fuzz... function, implies no-test-case",
+			Destination: &opts.NoDefaultFuzz,
+		},
 	}
 	app.Action = func(c *cli.Context) error {
 		if len(c.Args()) < 1 {
