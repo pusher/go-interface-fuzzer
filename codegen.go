@@ -3,16 +3,113 @@ package main
 import (
 	"errors"
 	"fmt"
+	"go/ast"
 	"strconv"
 	"strings"
 	"unicode"
+
+	goimports "golang.org/x/tools/imports"
 )
+
+// Options for the code generator
+type CodeGenOptions struct {
+	// Generate a complete source file, with package name and imports.
+	Complete bool
+
+	// The filename to use when automatically resolving
+	// imports. If unset by the command-line arguments, defaults
+	// to the filename of the source file.
+	Filename string
+
+	// The package to use in the generated output. If unset by the
+	// command-line arguments, defaults to the package of the
+	// source file.
+	PackageName string
+}
 
 // Fuzzer is a pair of an interface declaration and a description of
 // how to generate the fuzzer.
 type Fuzzer struct {
 	Interface Interface
 	Wanted    WantedFuzzer
+}
+
+/// ENTRY POINT
+
+// Generate code for the fuzzers.
+func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer) (string, []error) {
+	var code string
+	var errs []error
+
+	if options.Complete {
+		code = GeneratePreamble(options.PackageName, imports)
+	}
+
+	codeGenErr := func(fuzzer Fuzzer, err error) error {
+		return fmt.Errorf("error occurred whilst generating code for '%s': %s.", fuzzer.Interface.Name, err)
+	}
+
+	for _, fuzzer := range fuzzers {
+		testCase, testCaseErr := CodegenTestCase(fuzzer)
+		withDefaultReference, withDefaultReferenceErr := CodegenWithDefaultReference(fuzzer)
+		withReference, withReferenceErr := CodegenWithReference(fuzzer)
+
+		if testCaseErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, testCaseErr))
+			continue
+		}
+		if withDefaultReferenceErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, withDefaultReferenceErr))
+			continue
+		}
+		if withReferenceErr != nil {
+			errs = append(errs, codeGenErr(fuzzer, withReferenceErr))
+			continue
+		}
+
+		code = code + fmt.Sprintf("// %s\n\n%s\n\n%s\n\n%s\n", fuzzer.Interface.Name, testCase, withDefaultReference, withReference)
+	}
+
+	code, err := FixImports(options, code)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return code, errs
+}
+
+// GeneratePreamble generates the header for a complete source file:
+// the package name and the imports. These imports may be both
+// overzealous (all imports from the source file are copied across)
+// and incomplete (imports the generated functions pull in aren't
+// added), so the FixImports function must be called after the full
+// code has been generated to fix this up.
+func GeneratePreamble(packagename string, imports []*ast.ImportSpec) string {
+	preamble := "package " + packagename + "\n\n"
+
+	for _, iport := range imports {
+		preamble = preamble + GenerateImport(iport) + "\n"
+	}
+
+	return preamble + "\n"
+}
+
+// GenerateImport generates an import statement from an
+// *ast.ImportSpec.
+func GenerateImport(iport *ast.ImportSpec) string {
+	if iport.Name != nil {
+		return "import " + iport.Name.Name + " " + iport.Path.Value
+	}
+	return "import " + iport.Path.Value
+}
+
+// FixImports adds and removes imports with 'goimports'.
+func FixImports(options CodeGenOptions, code string) (string, error) {
+	if options.Complete {
+		cbytes, err := goimports.Process(options.Filename, []byte(code), nil)
+		return string(cbytes), err
+	}
+	return code, nil
 }
 
 /// MAIN CODE GENERATORS
