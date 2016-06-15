@@ -107,14 +107,18 @@ func codeGen(filename string, packagename string, complete bool, imports []*ast.
 		code = code + fmt.Sprintf("// %s\n\n%s\n\n%s\n\n%s\n", fuzzer.Interface.Name, testCase, withDefaultReference, withReference)
 	}
 
-	cbytes, err := goimports.Process(filename, []byte(code), nil)
+	if complete {
+		cbytes, err := goimports.Process(opts.filename, []byte(code), nil)
 
-	if err != nil {
-		fmt.Print(code)
-		errs = append(errs, err)
+		if err != nil {
+			fmt.Print(code)
+			errs = append(errs, err)
+		}
+
+		return string(cbytes), errs
 	}
 
-	return string(cbytes), errs
+	return code, errs
 }
 
 func main() {
