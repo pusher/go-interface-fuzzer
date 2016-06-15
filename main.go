@@ -59,6 +59,7 @@ func reconcileFuzzers(interfaces []Interface, wanteds []WantedFuzzer) ([]Fuzzer,
 
 func main() {
 	var opts CodeGenOptions
+	var ifaceonly string
 
 	app := cli.NewApp()
 	app.Name = "go-interface-fuzzer"
@@ -89,6 +90,11 @@ func main() {
 			Usage:       "Do not generate the Fuzz... function, implies no-test-case",
 			Destination: &opts.NoDefaultFuzz,
 		},
+		cli.StringFlag{
+			Name:        "interface",
+			Usage:       "Ignore special comments and just generate a fuzz tester for the named interface, implies no-default",
+			Destination: &ifaceonly,
+		},
 	}
 	app.Action = func(c *cli.Context) error {
 		if len(c.Args()) < 1 {
@@ -107,7 +113,14 @@ func main() {
 		interfaces := InterfacesFromAST(parsedFile)
 
 		// Extract the wanted fuzzers
-		wanteds, werrs := WantedFuzzersFromAST(parsedFile)
+		var wanteds []WantedFuzzer
+		var werrs []error
+		if ifaceonly == "" {
+			wanteds, werrs = WantedFuzzersFromAST(parsedFile)
+		} else {
+			// Default fuzzer for this interface.
+			wanteds = append(wanteds, WantedFuzzer{InterfaceName: ifaceonly})
+		}
 		if len(werrs) > 0 {
 			return cli.NewExitError(errorList("Found errors while extracting interface definitions", werrs), 1)
 		}
