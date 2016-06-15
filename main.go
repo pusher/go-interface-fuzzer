@@ -93,12 +93,6 @@ func main() {
 			return cli.NewExitError(fmt.Sprintf("Could not parse file: '%s'", err.Error()), 1)
 		}
 
-		if parsedFile == nil {
-			// Shouldn't be reachable, as 'err' should be non-nil if
-			// the ast is nil.
-			return cli.NewExitError("Could not parse file.", 1)
-		}
-
 		// Extract all the interfaces
 		interfaces := InterfacesFromAST(parsedFile)
 
