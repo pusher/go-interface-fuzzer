@@ -235,7 +235,7 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 	// - code to create initial state
 	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {%[4]s
 
-	for i = 0; i < maxops; i++ {
+	for i := uint(0); i < maxops; i++ {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 
