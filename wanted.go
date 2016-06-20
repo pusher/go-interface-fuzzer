@@ -256,7 +256,7 @@ func ParseKnownCorrect(line string) (Function, bool, error) {
 		return function, false, errors.New("@known correct must have a function name")
 	}
 
-	function.Name, rest = ParseName(rest)
+	function.Name, rest = ParseFunctionName(rest)
 
 	// [ArgType1 ... ArgTypeN]
 	var args []Type
@@ -301,7 +301,7 @@ func ParseGenerator(line string) (Type, string, bool, error) {
 
 	// FunctionName
 	var name string
-	name, rest = ParseName(rest)
+	name, rest = ParseFunctionName(rest)
 
 	if name == "" {
 		return nil, name, stateful, fmt.Errorf("expected a name in '%s'", line)
@@ -350,12 +350,12 @@ func ParseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 	// give an error.
 
 	tyType, tyRest, tyErr := ParseType(line)
-	nName, nRest := ParseName(line)
+	nName, nRest := ParseFunctionName(line)
 
 	if tyErr == nil && tyRest[0] == ':' {
 		// It's a method.
 		funcOrMeth.Type = tyType
-		funcOrMeth.Name, rest = ParseName(tyRest[1:])
+		funcOrMeth.Name, rest = ParseFunctionName(tyRest[1:])
 	} else if nName != "" {
 		// It's a function
 		funcOrMeth.Name = nName
@@ -366,6 +366,34 @@ func ParseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 	}
 
 	return funcOrMeth, rest, err
+}
+
+// Parse a function name, returning the remainder of the string, which
+// has leading spaces stripped.
+//
+// SYNTAX: [ModuleName.].FunctionName
+func ParseFunctionName(line string) (string, string) {
+	var (
+		name string
+		rest string
+	)
+
+	// Parse a name and see if the next character is a '.'.
+	pref, suff := ParseName(line)
+	suff = strings.TrimLeftFunc(suff, unicode.IsSpace)
+
+	if len(suff) > 0 && suff[0] == '.' {
+		modname := pref
+		funcname, suff2 := ParseName(suff[1:])
+		name = modname + "." + funcname
+		rest = strings.TrimLeftFunc(suff2, unicode.IsSpace)
+	} else {
+		name = pref
+		rest = suff
+	}
+
+	return name, rest
+
 }
 
 // Parse a type. This is very stupid and doesn't make much effort to
