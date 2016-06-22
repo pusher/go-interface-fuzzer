@@ -30,15 +30,14 @@ func FuzzStore(makeTest func(int) Store, rand *rand.Rand, max uint) error {
 	expectedStore := makeReferenceStore(argInt)
 	actualStore := makeTest(argInt)
 
-	return FuzzStoreWith(&reta0, retb0, rand, max)
+	return FuzzStoreWith(&expectedStore, actualStore, rand, max)
 }
 
 func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error {
-
 	// Create initial state
 	state := uint(0)
 
-	for i = 0; i < maxops; i++ {
+	for i := uint(0); i < maxops; i++ {
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 

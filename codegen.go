@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"go/ast"
 	"strconv"
 	"strings"
+	"text/template"
 	"unicode"
 
 	goimports "golang.org/x/tools/imports"
@@ -72,6 +74,97 @@ var (
 
 	// Fallback comparison if there is nothing in 'defaultComparisons'.
 	fallbackComparison = "reflect.DeepEqual(%s, %s)"
+)
+
+// All of the templates take a Fuzzer as the argument.
+const (
+	// Template used by CodegenTestCase.
+	testCaseTemplate = `
+{{$name := .Interface.Name}}
+{{$args := argV .Wanted.Reference.Parameters}}
+
+func FuzzTest{{$name}}(makeTest func({{$args}}) {{$name}}, t *testing.T) {
+	rand := rand.New(rand.NewSource(0))
+
+	err := Fuzz{{$name}}(makeTest, rand, 100)
+
+	if err != nil {
+		t.Error(err)
+	}
+}`
+
+	// Template used by CodegenWithDefaultReference
+	withDefaultReferenceTemplate = `
+{{$name  := .Interface.Name}}
+{{$args  := argV .Wanted.Reference.Parameters}}
+{{$decls := makeFunCalls . .Wanted.Reference .Wanted.Reference.Name "makeTest"}}
+{{$and   := eitherOr .Wanted.ReturnsValue "&" ""}}
+
+func Fuzz{{$name}}(makeTest func ({{$args}}) {{$name}}, rand *rand.Rand, max uint) error {
+{{indent $decls "\t"}}
+
+	return Fuzz{{$name}}With({{$and}}expected{{$name}}, actual{{$name}}, rand, max)
+}`
+
+	// Template used by CodegenWithReference
+	withReferenceTemplate = `
+{{$fuzzer := .}}
+{{$name   := .Interface.Name}}
+{{$count  := len .Interface.Functions}}
+{{$state  := .Wanted.GeneratorState}}
+
+func Fuzz{{$name}}With(reference {{$name}}, test {{$name}}, rand *rand.Rand, maxops uint) error {
+{{if $state | eq ""}}{{else}}	// Create initial state
+	state := {{$state}}
+
+{{end}}	for i := uint(0); i < maxops; i++ {
+		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
+		// both, check for discrepancy, and bail out on error. Simple!
+
+		actionToPerform := rand.Intn({{$count}})
+
+		switch actionToPerform {
+{{- range $i, $function := .Interface.Functions}}
+		case {{$i}}:
+			// Call the method on both implementations
+{{indent (makeFunCalls $fuzzer $function (printf "reference.%s" $function.Name) (printf "test.%s" $function.Name)) "\t\t\t"}}
+
+			// And check for discrepancies.
+{{- range $j, $ty := $function.Returns}}
+			{{- $expected := expected $function $j}}
+			{{- $actual   := actual $function $j}}
+			if !{{printf (comparison $fuzzer $ty) $expected $actual}} {
+				return fmt.Errorf("inconsistent result in {{$function.Name}}\nexpected: %v\nactual:   %v", {{$expected}}, {{$actual}})
+			}
+{{- end}}
+{{- end}}
+		}
+	}
+
+	return nil
+}`
+
+	// Template used by MakeFunctionCalls.
+	functionCallTemplate = `
+{{$fuzzer       := . }}
+{{$function     := function ""}}
+{{$expecteds    := expecteds $function}}
+{{$actuals      := actuals $function}}
+{{$arguments    := arguments $function}}
+{{$expectedFunc := expectedFunc ""}}
+{{$actualFunc   := actualFunc ""}}
+
+{{if len $arguments | ne 0}}
+var ({{range $i, $ty := $function.Parameters}}
+	{{argument $function $i}} {{toString $ty}}{{end}}
+)
+{{range $i, $ty := $function.Parameters}}
+{{makeTyGen $fuzzer (argument $function $i) $ty}}
+{{- end}}
+{{- end}}
+
+{{varV $expecteds}} := {{$expectedFunc}}({{varV $arguments}})
+{{varV $actuals}} := {{$actualFunc}}({{varV $arguments}})`
 )
 
 /// ENTRY POINT
@@ -178,21 +271,7 @@ func FixImports(options CodeGenOptions, code string) (string, error) {
 // This test case will call `FuzzStore` (see
 // CodegenWithDefaultReference) with a max number of 100 operations.
 func CodegenTestCase(fuzzer Fuzzer) (string, error) {
-	// Format parameters:
-	//
-	// - interface name
-	// - generator arguments (comma separated)
-	template := `func FuzzTest%[1]s(makeTest (func(%[2]s) %[1]s), t *testing.T) {
-	rand := rand.New(rand.NewSource(0))
-
-	err := Fuzz%[1]s(makeTest, rand, 100)
-
-	if err != nil {
-		t.Error(err)
-	}
-}`
-
-	return fmt.Sprintf(template, fuzzer.Interface.Name, GeneratorArgs(fuzzer)), nil
+	return runTemplate("testCase", testCaseTemplate, fuzzer)
 }
 
 // CodegenWithDefaultReference generates a function which will compare
@@ -210,39 +289,7 @@ func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 // This function will call `FuzzStoreWith` (see CodegenWithReference)
 // with the default reference.
 func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
-	// Format parameters:
-	//
-	// - interface name
-	// - generator arguments (comma separated)
-	// - reference generator name
-	// - "&" if the reference generator needs that
-	// - code to declare arguments, set random values, and call functions
-	template := `func Fuzz%[1]s(makeTest (func (%[2]s) %[1]s), rand *rand.Rand, max uint) error {
-%[5]s
-
-	return Fuzz%[1]sWith(%[4]sexpected%[1]s, actual%[1]s, rand, max)
-}`
-
-	var ampersand string
-	if fuzzer.Wanted.ReturnsValue {
-		ampersand = "&"
-	}
-
-	funcalls, err := MakeFunctionCalls(fuzzer, fuzzer.Wanted.Reference, fuzzer.Wanted.Reference.Name, "makeTest")
-
-	if err != nil {
-		return "", err
-	}
-
-	body := fmt.Sprintf(
-		template,
-		fuzzer.Interface.Name,
-		GeneratorArgs(fuzzer),
-		fuzzer.Wanted.Reference.Name,
-		ampersand,
-		indentLines(funcalls, "\t"))
-
-	return body, nil
+	return runTemplate("withDefaultReference", withDefaultReferenceTemplate, fuzzer)
 }
 
 // CodegenWithReference generates a function which will compare two
@@ -260,100 +307,10 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 // `Store` (the first parameter) will be displayed as the "expected"
 // output, and the other as the "actual".
 func CodegenWithReference(fuzzer Fuzzer) (string, error) {
-	// Format parameters:
-	//
-	// - interface name
-	// - number of methods in interface
-	// - code to perform methods
-	// - code to create initial state
-	template := `func Fuzz%[1]sWith(reference %[1]s, test %[1]s, rand *rand.Rand, maxops uint) error {%[4]s
-
-	for i := uint(0); i < maxops; i++ {
-		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
-		// both, check for discrepancy, and bail out on error. Simple!
-
-		actionToPerform := rand.Intn(%[2]v)
-
-		switch actionToPerform {
-%[3]s
-		}
-	}
-
-	return nil
-}`
-
-	var actions []string
-	for i, function := range fuzzer.Interface.Functions {
-		caseTemplate := "case %[1]v:\n%s"
-		action, err := CodegenFunctionTest(fuzzer, function)
-		if err != nil {
-			return "", err
-		}
-		actions = append(actions, fmt.Sprintf(caseTemplate, i, indentLines(action, "\t")))
-	}
-
-	var initialState string
-	if fuzzer.Wanted.GeneratorState != "" {
-		initialState = fmt.Sprintf("\n\n\t// Create initial state\n\tstate := %s", fuzzer.Wanted.GeneratorState)
-	}
-
-	body := fmt.Sprintf(
-		template,
-		fuzzer.Interface.Name,
-		len(fuzzer.Interface.Functions),
-		indentLines(strings.Join(actions, "\n"), "\t\t"),
-		initialState)
-
-	return body, nil
-}
-
-// codegenFunctionTest generate the code to declare and initialise
-// variables, call the method on both implementations, compare the
-// results, and bail out on error.
-func CodegenFunctionTest(fuzzer Fuzzer, function Function) (string, error) {
-	// Format parameters:
-	//
-	// - code to declare variables + call functions (etc)
-	// - code to check for discrepancies
-	template := `// Call the method on both implementations
-%[1]s
-
-// And check for discrepancies.
-%[2]s`
-
-	funcalls, err := MakeFunctionCalls(fuzzer, function, "reference."+function.Name, "test."+function.Name)
-	if err != nil {
-		return "", err
-	}
-
-	var checks []string
-	retsExpected := FuncExpectedNames(function)
-	retsActual := FuncActualNames(function)
-	for i, ty := range function.Returns {
-		expected := retsExpected[i]
-		actual := retsActual[i]
-		check, err := MakeValueComparison(fuzzer, expected, actual, ty, "inconsistent result in "+function.Name)
-		if err != nil {
-			return "", err
-		}
-		checks = append(checks, check)
-	}
-
-	return fmt.Sprintf(template, funcalls, strings.Join(checks, "\n")), nil
+	return runTemplate("withReference", withReferenceTemplate, fuzzer)
 }
 
 /// FUNCTION CALLS
-
-// Produce the generator arguments as a comma-separated list.
-func GeneratorArgs(fuzzer Fuzzer) string {
-	var args []string
-
-	for _, ty := range fuzzer.Wanted.Reference.Parameters {
-		args = append(args, ty.ToString())
-	}
-
-	return strings.Join(args, ", ")
-}
 
 // Generate a call to two functions with the same signature, with
 // random argument values.
@@ -361,75 +318,13 @@ func GeneratorArgs(fuzzer Fuzzer) string {
 // Arguments are stored in variables arg0 ... argN. Return values in
 // variables reta0 ... retaN and retb0 ... retbN.
 func MakeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
-	// Format parameters:
-	//
-	// - first function name
-	// - second function name
-	// - code to declare random arguments inside a var block.
-	// - code to produce random argument values
-	// - argument variable names (comma separated)
-	// - return variable names for first function (comma separated)
-	// - return variable names for second function (comma separated)
-	template := `var (
-	%[3]s
-)
-
-%[4]s
-
-%[6]s := %[1]s(%[5]s)
-%[7]s := %[2]s(%[5]s)`
-
-	// Format parameters:
-	//
-	// - first function name
-	// - second function name
-	// - return variable names for first function (comma separated)
-	// - return variable names for second function (comma separated)
-	templateNoArgs := "%[3]s := %[1]s()\n%[4]s := %[2]s()"
-
-	var (
-		decls []string
-		args  []string
-		gens  []string
-	)
-
-	argNames := FuncArgNames(function)
-	for i, ty := range function.Parameters {
-		arg := argNames[i]
-
-		decls = append(decls, arg+" "+ty.ToString())
-		args = append(args, arg)
-		gen, err := MakeTypeGenerator(fuzzer, arg, ty)
-		if err != nil {
-			return "", err
-		}
-		gens = append(gens, gen)
+	funcs := template.FuncMap{
+		"function":     func(s string) Function { return function },
+		"expectedFunc": func(s string) string { return funcA },
+		"actualFunc":   func(s string) string { return funcB },
 	}
 
-	retsExpected := FuncExpectedNames(function)
-	retsActual := FuncActualNames(function)
-
-	body := fmt.Sprintf(
-		template,
-		funcA,
-		funcB,
-		strings.Join(decls, "\n\t"),
-		strings.Join(gens, "\n"),
-		strings.Join(args, ", "),
-		strings.Join(retsExpected, ", "),
-		strings.Join(retsActual, ", "))
-
-	// Slightly nicer output if there are no arguments
-	if len(args) == 0 {
-		body = fmt.Sprintf(
-			templateNoArgs,
-			funcA,
-			funcB,
-			strings.Join(retsExpected, ", "),
-			strings.Join(retsActual, ", "))
-	}
-
-	return body, nil
+	return runTemplateWith("functionCall", functionCallTemplate, fuzzer, funcs)
 }
 
 /// VALUE INITIALISATION
@@ -464,19 +359,9 @@ func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 
 /// VALUE COMPARISON
 
-// Produce some code to compare two values of the same type, returning
-// an error on discrepancy.
-func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) string {
-	// Format parameters:
-	//
-	// - expected variable name
-	// - actual variable name
-	// - comparison expression
-	// - error message
-	template := `if !%[3]s {
-	return fmt.Errorf("%[4]s\nexpected: %%v\nactual:   %%v", %[1]s, %[2]s)
-}`
-
+// Produce a format string to compare two values of the same type.
+// given the variable names.
+func MakeValueComparison(fuzzer Fuzzer, ty Type) string {
 	tyname := ty.ToString()
 	comparison, ok := defaultComparisons[tyname]
 	if !ok {
@@ -493,8 +378,95 @@ func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 		}
 	}
 
-	comparison = fmt.Sprintf(comparison, expectedvar, actualvar)
-	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg)
+	return comparison
+}
+
+/// TEMPLATES
+
+// Run a template and return the output.
+func runTemplate(tplName, tpl string, fuzzer Fuzzer) (string, error) {
+	return runTemplateWith(tplName, tpl, fuzzer, nil)
+}
+
+// Run a template and return the output, overriding the built-in
+// template functions with a custom map (which can also add new
+// functions).
+func runTemplateWith(tplName, tpl string, fuzzer Fuzzer, overrides template.FuncMap) (string, error) {
+	funcMap := template.FuncMap{
+		// Render a list of types
+		"argV": func(types []Type) string {
+			var args []string
+
+			for _, ty := range types {
+				args = append(args, ty.ToString())
+			}
+
+			return strings.Join(args, ", ")
+		},
+		// Render a list of variables
+		"varV": func(vars []string) string {
+			return strings.Join(vars, ", ")
+		},
+		// Select one of two values based on a flag
+		"eitherOr": func(f bool, a, b string) string {
+			if f {
+				return a
+			}
+			return b
+		},
+		// Indent every line of a string
+		"indent": indentLines,
+		// Argument names
+		"arguments": func(function Function) []string {
+			return FuncArgNames(function)
+		},
+		"argument": func(function Function, i int) (string, error) {
+			return inSlice(FuncArgNames(function), i, "argument")
+		},
+		// Expected value names
+		"expecteds": func(function Function) []string { return FuncExpectedNames(function) },
+		"expected": func(function Function, i int) (string, error) {
+			return inSlice(FuncExpectedNames(function), i, "result")
+		},
+		// Actual value names
+		"actuals": func(function Function) []string {
+			return FuncActualNames(function)
+		},
+		"actual": func(function Function, i int) (string, error) {
+			return inSlice(FuncActualNames(function), i, "result")
+		},
+		// Render a type as a string
+		"toString": func(ty Type) string {
+			return ty.ToString()
+		},
+		// Make a function call
+		"makeFunCalls": MakeFunctionCalls,
+		// Make a value comparison
+		"comparison": MakeValueComparison,
+		// Make a type generator
+		"makeTyGen": MakeTypeGenerator,
+	}
+
+	for k, v := range overrides {
+		funcMap[k] = v
+	}
+
+	var buf bytes.Buffer
+	t, err := template.New(tplName).Funcs(funcMap).Parse(tpl)
+	if err != nil {
+		return "", err
+	}
+	err = t.Execute(&buf, fuzzer)
+	return strings.TrimSpace(string(buf.Bytes())), err
+}
+
+// Safe slice lookup
+func inSlice(ss []string, i int, name string) (string, error) {
+	if i < 0 || i >= len(ss) {
+		return "", errors.New(name + " index out of range")
+	}
+
+	return ss[i], nil
 }
 
 /// TYPE-DIRECTED VARIABLE NAMING
