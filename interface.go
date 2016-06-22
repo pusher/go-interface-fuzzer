@@ -12,15 +12,6 @@ import (
 	"go/ast"
 )
 
-// An Interface is a representation of an interface type.
-type Interface struct {
-	// The name of the interface type.
-	Name string
-
-	// The methods in the interface.
-	Functions []Function
-}
-
 // A Function is a representation of a function name and type, which
 // may be a member of an interface or not. All Functions in an
 // Interface will be members.
@@ -145,13 +136,13 @@ func (ty *PointerType) ToString() string {
 }
 
 // InterfacesFromAST extracts all interface declarations from the AST
-// of a file.
-func InterfacesFromAST(theAST *ast.File) []Interface {
+// of a file, as a map from names to interface decls.
+func InterfacesFromAST(theAST *ast.File) map[string][]Function {
 	if theAST == nil {
 		return nil
 	}
 
-	var interfaces []Interface
+	interfaces := make(map[string][]Function)
 
 	ast.Inspect(theAST, func(node ast.Node) bool {
 		switch tyspec := node.(type) {
@@ -160,9 +151,8 @@ func InterfacesFromAST(theAST *ast.File) []Interface {
 			switch ifacety := tyspec.Type.(type) {
 			case *ast.InterfaceType:
 				functions, err := FunctionsFromInterfaceType(*ifacety)
-				iface := Interface{Name: name, Functions: functions}
 				if err == nil {
-					interfaces = append(interfaces, iface)
+					interfaces[name] = functions
 				}
 			}
 

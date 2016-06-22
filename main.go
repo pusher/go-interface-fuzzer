@@ -24,38 +24,38 @@ func errorList(message string, errs []error) string {
 // Reconcile the wanted fuzzers with the interfaces. Complain if there
 // are any wanted fuzzers for which the interface decl isn't in the
 // file.
-func reconcileFuzzers(interfaces []Interface, wanteds []WantedFuzzer) ([]Fuzzer, []error) {
-	var fuzzers []Fuzzer
+func reconcileFuzzers(interfaces map[string][]Function, wanteds []WantedFuzzer) ([]Fuzzer, []error) {
 	var errs []error
 
+	// Fuzzers are stored as a map from interface name to fuzzer.
+	// This allows rapid checking for duplicates.
+	fuzzers := make(map[string]Fuzzer)
+
 	for _, wanted := range wanteds {
-		var found bool
-
-		for _, iface := range interfaces {
-			if wanted.InterfaceName != iface.Name {
-				continue
-			}
-
-			fuzzer := Fuzzer{Interface: iface, Wanted: wanted}
-
-			// Check we don't already have a fuzzer for
-			// this interface.
-			for _, existingFuzzer := range fuzzers {
-				if existingFuzzer.Interface.Name == iface.Name {
-					errs = append(errs, fmt.Errorf("Already have a fuzzer for '%s'.", wanted.InterfaceName))
-				}
-			}
-
-			fuzzers = append(fuzzers, fuzzer)
-			found = true
+		_, present := fuzzers[wanted.InterfaceName]
+		if present {
+			errs = append(errs, fmt.Errorf("already have a fuzzer for '%s'", wanted.InterfaceName))
+			continue
 		}
 
-		if !found {
-			errs = append(errs, fmt.Errorf("Couldn't find interface '%s' in this file.", wanted.InterfaceName))
+		methods, ok := interfaces[wanted.InterfaceName]
+
+		if !ok {
+			errs = append(errs, fmt.Errorf("couldn't find interface '%s' in this file", wanted.InterfaceName))
 		}
+
+		fuzzer := Fuzzer{Name: wanted.InterfaceName, Methods: methods, Wanted: wanted}
+		fuzzers[wanted.InterfaceName] = fuzzer
 	}
 
-	return fuzzers, errs
+	// Get a slice out of the 'fuzzers' map
+	realfuzzers := make([]Fuzzer, len(fuzzers))
+	i := 0
+	for _, fuzzer := range fuzzers {
+		realfuzzers[i] = fuzzer
+		i++
+	}
+	return realfuzzers, errs
 }
 
 func main() {

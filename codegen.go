@@ -39,8 +39,9 @@ type CodeGenOptions struct {
 // Fuzzer is a pair of an interface declaration and a description of
 // how to generate the fuzzer.
 type Fuzzer struct {
-	Interface Interface
-	Wanted    WantedFuzzer
+	Name    string
+	Methods []Function
+	Wanted  WantedFuzzer
 }
 
 var (
@@ -80,7 +81,7 @@ var (
 const (
 	// Template used by CodegenTestCase.
 	testCaseTemplate = `
-{{$name := .Interface.Name}}
+{{$name := .Name}}
 {{$args := argV .Wanted.Reference.Parameters}}
 
 func FuzzTest{{$name}}(makeTest func({{$args}}) {{$name}}, t *testing.T) {
@@ -95,7 +96,7 @@ func FuzzTest{{$name}}(makeTest func({{$args}}) {{$name}}, t *testing.T) {
 
 	// Template used by CodegenWithDefaultReference
 	withDefaultReferenceTemplate = `
-{{$name  := .Interface.Name}}
+{{$name  := .Name}}
 {{$args  := argV .Wanted.Reference.Parameters}}
 {{$decls := makeFunCalls . .Wanted.Reference .Wanted.Reference.Name "makeTest"}}
 {{$and   := eitherOr .Wanted.ReturnsValue "&" ""}}
@@ -109,8 +110,8 @@ func Fuzz{{$name}}(makeTest func ({{$args}}) {{$name}}, rand *rand.Rand, max uin
 	// Template used by CodegenWithReference
 	withReferenceTemplate = `
 {{$fuzzer := .}}
-{{$name   := .Interface.Name}}
-{{$count  := len .Interface.Functions}}
+{{$name   := .Name}}
+{{$count  := len .Methods}}
 {{$state  := .Wanted.GeneratorState}}
 
 func Fuzz{{$name}}With(reference {{$name}}, test {{$name}}, rand *rand.Rand, maxops uint) error {
@@ -124,7 +125,7 @@ func Fuzz{{$name}}With(reference {{$name}}, test {{$name}}, rand *rand.Rand, max
 		actionToPerform := rand.Intn({{$count}})
 
 		switch actionToPerform {
-{{- range $i, $function := .Interface.Functions}}
+{{- range $i, $function := .Methods}}
 		case {{$i}}:
 			// Call the method on both implementations
 {{indent (makeFunCalls $fuzzer $function (printf "reference.%s" $function.Name) (printf "test.%s" $function.Name)) "\t\t\t"}}
@@ -179,11 +180,11 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 	}
 
 	codeGenErr := func(fuzzer Fuzzer, err error) error {
-		return fmt.Errorf("error occurred whilst generating code for '%s': %s.", fuzzer.Interface.Name, err)
+		return fmt.Errorf("error occurred whilst generating code for '%s': %s.", fuzzer.Name, err)
 	}
 
 	for _, fuzzer := range fuzzers {
-		code = code + "// " + fuzzer.Interface.Name + "\n\n"
+		code = code + "// " + fuzzer.Name + "\n\n"
 
 		// FuzzTest...(... *testing.T)
 		if !(options.NoTestCase || options.NoDefaultFuzz) {
