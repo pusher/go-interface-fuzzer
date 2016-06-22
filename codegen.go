@@ -41,6 +41,39 @@ type Fuzzer struct {
 	Wanted    WantedFuzzer
 }
 
+var (
+	// Default generators for builtin types. If there is no entry
+	// for the desired type, an error is signalled.
+	defaultGenerators = map[string]string{
+		"bool":       "rand.Intn(2) == 0",
+		"byte":       "byte(rand.Uint32())",
+		"complex64":  "complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))",
+		"complex128": "complex(rand.NormFloat64(), rand.NormFloat64())",
+		"float32":    "float32(rand.NormFloat64())",
+		"float64":    "rand.NormFloat64()",
+		"int":        "rand.Int()",
+		"int8":       "int8(rand.Int())",
+		"int16":      "int16(rand.Int())",
+		"int32":      "rand.Int31()",
+		"int64":      "rand.Int63()",
+		"rune":       "rune(rand.Int31())",
+		"uint":       "uint(rand.Uint32())",
+		"uint8":      "uint8(rand.Uint32())",
+		"uint16":     "uint16(rand.Uint32())",
+		"uint32":     "rand.Uint32()",
+		"uint64":     "(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())",
+	}
+
+	// Default comparisons for builtin types. If there is no entry
+	// for the desired type, 'fallbackComparison' is used.
+	defaultComparisons = map[string]string{
+		"error": "((%s == nil) == (%s == nil))",
+	}
+
+	// Fallback comparison if there is nothing in 'defaultComparisons'.
+	fallbackComparison = "reflect.DeepEqual(%s, %s)"
+)
+
 /// ENTRY POINT
 
 // Generate code for the fuzzers.
@@ -420,7 +453,7 @@ func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 
 	// If it's a type we can handle, supply a default generator.
 	var tygen string
-	tygen, ok = DefaultGenerator(tyname)
+	tygen, ok = defaultGenerators[tyname]
 	if ok {
 		return fmt.Sprintf("%s = %s", varname, tygen), nil
 	}
@@ -429,37 +462,11 @@ func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	return "", fmt.Errorf("I don't know how to generate a %s", tyname)
 }
 
-// Default generators for builtin types.
-func DefaultGenerator(tyname string) (string, bool) {
-	generators := map[string]string{
-		"bool":       "rand.Intn(2) == 0",
-		"byte":       "byte(rand.Uint32())",
-		"complex64":  "complex(float32(rand.NormFloat64()), float32(rand.NormFloat64()))",
-		"complex128": "complex(rand.NormFloat64(), rand.NormFloat64())",
-		"float32":    "float32(rand.NormFloat64())",
-		"float64":    "rand.NormFloat64()",
-		"int":        "rand.Int()",
-		"int8":       "int8(rand.Int())",
-		"int16":      "int16(rand.Int())",
-		"int32":      "rand.Int31()",
-		"int64":      "rand.Int63()",
-		"rune":       "rune(rand.Int31())",
-		"uint":       "uint(rand.Uint32())",
-		"uint8":      "uint8(rand.Uint32())",
-		"uint16":     "uint16(rand.Uint32())",
-		"uint32":     "rand.Uint32()",
-		"uint64":     "(uint64(rand.Uint32()) << 32) | uint64(rand.Uint32())",
-	}
-
-	tygen, ok := generators[tyname]
-	return tygen, ok
-}
-
 /// VALUE COMPARISON
 
 // Produce some code to compare two values of the same type, returning
 // an error on discrepancy.
-func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) (string, error) {
+func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty Type, errmsg string) string {
 	// Format parameters:
 	//
 	// - expected variable name
@@ -471,30 +478,23 @@ func MakeValueComparison(fuzzer Fuzzer, expectedvar string, actualvar string, ty
 }`
 
 	tyname := ty.ToString()
-	comparison := fmt.Sprintf(DefaultComparison(tyname), expectedvar, actualvar)
+	comparison, ok := defaultComparisons[tyname]
+	if !ok {
+		comparison = fallbackComparison
+	}
 
 	// If there's a provided comparison, use that.
 	tycomp, ok := fuzzer.Wanted.Comparison[tyname]
 	if ok {
-		comparison = fmt.Sprintf("%s.%s(%s)", expectedvar, tycomp.Name, actualvar)
+		comparison = "%s." + tycomp.Name + "(%s)"
 
 		if tycomp.IsFunction {
-			comparison = fmt.Sprintf("%s(%s, %s)", tycomp.Name, expectedvar, actualvar)
+			comparison = tycomp.Name + "(%s, %s)"
 		}
 	}
 
-	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg), nil
-}
-
-// Default comparisons for builtin types.
-func DefaultComparison(tyname string) string {
-	if tyname == "error" {
-		// Special case for errors: just compare nilness.
-		return "((%s == nil) == (%s == nil))"
-	}
-
-	// For everything else, use reflect.DeepEqual
-	return "reflect.DeepEqual(%s, %s)"
+	comparison = fmt.Sprintf(comparison, expectedvar, actualvar)
+	return fmt.Sprintf(template, expectedvar, actualvar, comparison, errmsg)
 }
 
 /// TYPE-DIRECTED VARIABLE NAMING
