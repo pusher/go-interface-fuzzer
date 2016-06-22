@@ -7,7 +7,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 )
@@ -172,13 +171,9 @@ func InterfacesFromAST(theAST *ast.File) map[string][]Function {
 // FunctionsFromInterfaceType tries to extract function declarations
 // from an ast.InterfaceType.
 func FunctionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
-	if ifacety.Methods == nil {
-		return []Function{}, errors.New("Interface method slice is nil")
-	}
-
 	var functions []Function
 	for _, field := range ifacety.Methods.List {
-		if field.Names == nil || len(field.Names) == 0 {
+		if len(field.Names) == 0 {
 			continue
 		}
 
