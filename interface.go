@@ -190,9 +190,13 @@ func FunctionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 			ast.Inspect(fundecl, func(node ast.Node) bool {
 				switch funty := node.(type) {
 				case *ast.FuncType:
-					parameters := TypeListFromFieldList(*funty.Params)
-					returns := TypeListFromFieldList(*funty.Results)
-					function := Function{Name: name, Parameters: parameters, Returns: returns}
+					function := Function{Name: name}
+					if funty.Params != nil {
+						function.Parameters = TypeListFromFieldList(*funty.Params)
+					}
+					if funty.Results != nil {
+						function.Returns = TypeListFromFieldList(*funty.Results)
+					}
 					functions = append(functions, function)
 					return false
 				}

@@ -164,8 +164,13 @@ var ({{range $i, $ty := $function.Parameters}}
 {{- end}}
 {{- end}}
 
+{{if len $expecteds | eq 0}}
+{{$expectedFunc}}({{varV $arguments}})
+{{$actualFunc}}({{varV $arguments}})
+{{else}}
 {{varV $expecteds}} := {{$expectedFunc}}({{varV $arguments}})
-{{varV $actuals}} := {{$actualFunc}}({{varV $arguments}})`
+{{varV $actuals}} := {{$actualFunc}}({{varV $arguments}})
+{{end}}`
 )
 
 /// ENTRY POINT
