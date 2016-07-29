@@ -124,21 +124,17 @@ func Fuzz{{$name}}With(reference {{$name}}, test {{$name}}, rand *rand.Rand, max
 
 		actionToPerform := rand.Intn({{$count}})
 
-		switch actionToPerform {
-{{- range $i, $function := .Methods}}
+		switch actionToPerform { {{range $i, $function := .Methods}}
 		case {{$i}}:
 			// Call the method on both implementations
 {{indent (makeFunCalls $fuzzer $function (printf "reference.%s" $function.Name) (printf "test.%s" $function.Name)) "\t\t\t"}}
 
-			// And check for discrepancies.
-{{- range $j, $ty := $function.Returns}}
-			{{- $expected := expected $function $j}}
-			{{- $actual   := actual $function $j}}
+			// And check for discrepancies.{{range $j, $ty := $function.Returns}}
+{{$expected := expected $function $j}}
+{{$actual   := actual $function $j}}
 			if !{{printf (comparison $fuzzer $ty) $expected $actual}} {
 				return fmt.Errorf("inconsistent result in {{$function.Name}}\nexpected: %v\nactual:   %v", {{$expected}}, {{$actual}})
-			}
-{{- end}}
-{{- end}}
+			}{{end}}{{end}}
 		}
 	}
 
@@ -160,9 +156,7 @@ var ({{range $i, $ty := $function.Parameters}}
 	{{argument $function $i}} {{toString $ty}}{{end}}
 )
 {{range $i, $ty := $function.Parameters}}
-{{makeTyGen $fuzzer (argument $function $i) $ty}}
-{{- end}}
-{{- end}}
+{{makeTyGen $fuzzer (argument $function $i) $ty}}{{end}}{{end}}
 
 {{if len $expecteds | eq 0}}
 {{$expectedFunc}}({{varV $arguments}})
