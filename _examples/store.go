@@ -5,16 +5,16 @@ A very simple message store example: messages are sorted into
 retrieved, but all messages since an ID can be retrieved: either as an
 iterator or as a slice.
 
+This assumes a type called ReferenceStore and a function
+NewReferenceStore are in scope.
+
 */
 
 package example
 
 import (
-	// stdlib imports
-	"rand"
-
-	// local imports
-	"model"
+	"math/rand"
+	"reflect"
 )
 
 /*
@@ -23,56 +23,61 @@ import (
 @known correct: & makeReferenceStore int
 
 @invariant: %var.NumEntries() == len(%var.AsSlice())
-
-@comparison: compareMessageIterators *MessageIterator
+@invariant: %var.NumEntries() <= %var.MessageLimit()
 
 @generator state: uint(0)
 
-@generator:   generateChannel   model.Channel
-@generator: ! generateID        model.ID
-@generator: ! generateIDMessage model.IDMessage
+@generator:   generateChannel Channel
+@generator: ! generateID      ID
+@generator: ! generateMessage Message
 */
 type Store interface {
 	// Inserts an entry in the store. Returns an error if an entry with greater or
 	// equal ID was already inserted.
-	Put(msg model.IDMessage) error
+	Put(msg Message) error
 
 	// Returns a slice of all messages in the specified channels, from the
 	// specified ID to the message with most recent ID. All messages will have IDs
 	// such that `sinceID < ID <= mostRecentID`.
-	EntriesSince(sinceID model.ID, channel model.Channel) (model.ID, []model.IDMessage)
-
-	// Same as EntriesSince, but returns a MessageIterator rather
-	// than a slice.
-	EntriesSinceIter(model.ID, model.Channel) (model.ID, *MessageIterator)
+	EntriesSince(sinceID ID, channel Channel) (ID, []Message)
 
 	// Returns the ID of the most recently inserted message.
-	MostRecentID() model.ID
+	MostRecentID() ID
 
 	// Returns the number of messages in the store.
 	NumEntries() int
 
 	// Returns all messages across all channels as a single slice,
 	// sorted by ID.
-	AsSlice() []model.IDMessage
+	AsSlice() []Message
 
 	// Returns the maximum number of messages in the store.
 	MessageLimit() int
 }
 
-// Compare two message iterators
-func compareMessageIterators(expected, actual *MessageIterator) bool {
-	return reflect.DeepEqual(expected.ToSlice(), actual.ToSlice())
+type Message struct {
+	// Each message has a unique ID.
+	ID ID
+
+	// A message belongs to a specific channel.
+	Channel Channel
+
+	// And has a body
+	Body string
 }
 
-// Create a new clean ModelStore for testing purposes.
+type Channel string
+
+type ID uint64
+
+// Create a new clean ReferenceStore for testing purposes.
 func makeReferenceStore(capacity int) ReferenceStore {
-	return NewReferenceStore(capacity, []model.IDMessage{})
+	return NewReferenceStore(capacity, []Message{})
 }
 
 // Generate a channel name. Use a short string.
-func generateChannel(rand *rand.Rand) model.Channel {
-	return model.Channel(randomString(rand, 1+rand.Intn(4)))
+func generateChannel(rand *rand.Rand) Channel {
+	return Channel(randomString(rand, 1+rand.Intn(4)))
 }
 
 // Generate an ID. Randomly generate some across the full range of
@@ -80,26 +85,26 @@ func generateChannel(rand *rand.Rand) model.Channel {
 // is so that EntriesSince and EntriesSinceIter have a good chance of
 // actually returning something (whilst not disregarding the "error"
 // case where the ID is invalid).
-func generateID(rand *rand.Rand, maxSoFar uint) (model.ID, uint) {
+func generateID(rand *rand.Rand, maxSoFar uint) (ID, uint) {
 	newid := uint(rand.Uint32()) % 64
 
 	if rand.Intn(2) == 0 {
 		newid = uint(rand.Uint32()) % maxSoFar
 	}
 
-	return model.ID(newid), maxSoFar
+	return ID(newid), maxSoFar
 }
 
 // Generate an ID message. Randomly generate some. Use a
 // monotonically-increasing ID for others. This is because Put
 // requires that, so if IDs were totally random, this wouldn't be
 // likely to produce particularly good results.
-func generateIDMessage(rand *rand.Rand, maxSoFar uint) (model.IDMessage, uint) {
+func generateMessage(rand *rand.Rand, maxSoFar uint) (Message, uint) {
 	newid := uint(rand.Uint32()) % 64
 
-	msg := model.Message{
+	msg := Message{
 		Channel: generateChannel(rand),
-		Data:    model.MessageData(randomString(rand, 1+rand.Intn(4))),
+		Data:    MessageData(randomString(rand, 1+rand.Intn(4))),
 	}
 
 	if rand.Intn(2) == 0 {
@@ -110,7 +115,7 @@ func generateIDMessage(rand *rand.Rand, maxSoFar uint) (model.IDMessage, uint) {
 		maxSoFar = newid
 	}
 
-	return model.IDMessage{ID: model.ID(newid), Message: msg}, maxSoFar
+	return Message{ID: ID(newid), Message: msg}, maxSoFar
 }
 
 // Generate a random string

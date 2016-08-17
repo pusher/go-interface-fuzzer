@@ -3,8 +3,7 @@ package example
 import (
 	"errors"
 	"fmt"
-	"model"
-	"rand"
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -42,19 +41,19 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 
-		actionToPerform := rand.Intn(7)
+		actionToPerform := rand.Intn(6)
 
 		switch actionToPerform {
 		case 0:
 			// Call the method on both implementations
 			var (
-				argModelIDMessage model.IDMessage
+				argMessage Message
 			)
 
-			argModelIDMessage, state = generateIDMessage(rand, state)
+			argMessage, state = generateMessage(rand, state)
 
-			expectedError := reference.Put(argModelIDMessage)
-			actualError := test.Put(argModelIDMessage)
+			expectedError := reference.Put(argMessage)
+			actualError := test.Put(argMessage)
 
 			// And check for discrepancies.
 			if !((expectedError == nil) == (actualError == nil)) {
@@ -63,53 +62,33 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		case 1:
 			// Call the method on both implementations
 			var (
-				argModelID      model.ID
-				argModelChannel model.Channel
+				argID      ID
+				argChannel Channel
 			)
 
-			argModelID, state = generateID(rand, state)
-			argModelChannel = generateChannel(rand)
+			argID, state = generateID(rand, state)
+			argChannel = generateChannel(rand)
 
-			expectedModelID, expectedModelIDMessage := reference.EntriesSince(argModelID, argModelChannel)
-			actualModelID, actualModelIDMessage := test.EntriesSince(argModelID, argModelChannel)
+			expectedID, expectedMessage := reference.EntriesSince(argID, argChannel)
+			actualID, actualMessage := test.EntriesSince(argID, argChannel)
 
 			// And check for discrepancies.
-			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
+			if !reflect.DeepEqual(expectedID, actualID) {
+				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedID, actualID)
 			}
-			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
-				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
+			if !reflect.DeepEqual(expectedMessage, actualMessage) {
+				return fmt.Errorf("inconsistent result in EntriesSince\nexpected: %v\nactual:   %v", expectedMessage, actualMessage)
 			}
 		case 2:
 			// Call the method on both implementations
-			var (
-				argModelID      model.ID
-				argModelChannel model.Channel
-			)
-
-			argModelID, state = generateID(rand, state)
-			argModelChannel = generateChannel(rand)
-
-			expectedModelID, expectedMessageIterator := reference.EntriesSinceIter(argModelID, argModelChannel)
-			actualModelID, actualMessageIterator := test.EntriesSinceIter(argModelID, argModelChannel)
+			expectedID := reference.MostRecentID()
+			actualID := test.MostRecentID()
 
 			// And check for discrepancies.
-			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
-			}
-			if !compareMessageIterators(expectedMessageIterator, actualMessageIterator) {
-				return fmt.Errorf("inconsistent result in EntriesSinceIter\nexpected: %v\nactual:   %v", expectedMessageIterator, actualMessageIterator)
+			if !reflect.DeepEqual(expectedID, actualID) {
+				return fmt.Errorf("inconsistent result in MostRecentID\nexpected: %v\nactual:   %v", expectedID, actualID)
 			}
 		case 3:
-			// Call the method on both implementations
-			expectedModelID := reference.MostRecentID()
-			actualModelID := test.MostRecentID()
-
-			// And check for discrepancies.
-			if !reflect.DeepEqual(expectedModelID, actualModelID) {
-				return fmt.Errorf("inconsistent result in MostRecentID\nexpected: %v\nactual:   %v", expectedModelID, actualModelID)
-			}
-		case 4:
 			// Call the method on both implementations
 			expectedInt := reference.NumEntries()
 			actualInt := test.NumEntries()
@@ -118,16 +97,16 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			if !reflect.DeepEqual(expectedInt, actualInt) {
 				return fmt.Errorf("inconsistent result in NumEntries\nexpected: %v\nactual:   %v", expectedInt, actualInt)
 			}
-		case 5:
+		case 4:
 			// Call the method on both implementations
-			expectedModelIDMessage := reference.AsSlice()
-			actualModelIDMessage := test.AsSlice()
+			expectedMessage := reference.AsSlice()
+			actualMessage := test.AsSlice()
 
 			// And check for discrepancies.
-			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
-				return fmt.Errorf("inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
+			if !reflect.DeepEqual(expectedMessage, actualMessage) {
+				return fmt.Errorf("inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedMessage, actualMessage)
 			}
-		case 6:
+		case 5:
 			// Call the method on both implementations
 			expectedInt := reference.MessageLimit()
 			actualInt := test.MessageLimit()
@@ -140,6 +119,10 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 
 		if !(reference.NumEntries() == len(reference.AsSlice())) {
 			return errors.New("invariant violated: %var.NumEntries() == len(%var.AsSlice())")
+		}
+
+		if !(reference.NumEntries() <= reference.MessageLimit()) {
+			return errors.New("invariant violated: %var.NumEntries() <= %var.MessageLimit()")
 		}
 
 	}
