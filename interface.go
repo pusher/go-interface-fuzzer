@@ -212,20 +212,11 @@ func FunctionsFromInterfaceType(ifacety ast.InterfaceType) ([]Function, error) {
 // TypeListFromFieldList gets the list of type names from an
 // ast.FieldList. Names are not returned.
 func TypeListFromFieldList(fields ast.FieldList) []Type {
-	var types []Type
+	types := make([]Type, len(fields.List))
 
-	ast.Inspect(&fields, func(node ast.Node) bool {
-		switch tyexpr := node.(type) {
-		case ast.Expr:
-			ty := TypeFromTypeExpr(tyexpr)
-			if ty != nil {
-				types = append(types, ty)
-			}
-			return false
-		}
-
-		return true
-	})
+	for i, field := range fields.List {
+		types[i] = TypeFromTypeExpr(field.Type)
+	}
 
 	return types
 }

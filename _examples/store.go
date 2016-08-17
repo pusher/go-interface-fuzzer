@@ -35,12 +35,12 @@ import (
 type Store interface {
 	// Inserts an entry in the store. Returns an error if an entry with greater or
 	// equal ID was already inserted.
-	Put(model.IDMessage) error
+	Put(msg model.IDMessage) error
 
 	// Returns a slice of all messages in the specified channels, from the
 	// specified ID to the message with most recent ID. All messages will have IDs
 	// such that `sinceID < ID <= mostRecentID`.
-	EntriesSince(model.ID, model.Channel) (model.ID, []model.IDMessage)
+	EntriesSince(sinceID model.ID, channel model.Channel) (model.ID, []model.IDMessage)
 
 	// Same as EntriesSince, but returns a MessageIterator rather
 	// than a slice.
