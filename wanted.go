@@ -134,6 +134,9 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 
 				if fuzzing {
 					// Found a new fuzzer! Add the old one to the list.
+					if fuzzer.Reference.Name == "" {
+						return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName), true
+					}
 					fuzzers = append(fuzzers, fuzzer)
 
 				}
@@ -155,8 +158,13 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 	}
 
 	if fuzzing {
+		// Add the final fuzzer to the list.
+		if fuzzer.Reference.Name == "" {
+			return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName), true
+		}
 		return append(fuzzers, fuzzer), nil, false
 	}
+
 	return fuzzers, errors.New("no fuzzer found in group"), false
 }
 

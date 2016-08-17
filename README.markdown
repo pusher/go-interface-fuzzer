@@ -69,6 +69,8 @@ next to the interface, it can be anywhere in the source file.
 
   "InterfaceName"
 
+The `@fuzz interface` line is required.
+
 
 `@known correct` is the type that is, well, known to be correct; given
 as a function to produce a new value of that type.
@@ -84,6 +86,8 @@ the same parameters to create a new value of the type under test.
 
   The presence of a `&` means that this returns a value rather than a
   pointer, and so a reference must be made to it.
+
+The `@known correct` line is required.
 
 
 `@invariant` specifies a property that must always hold. It is only
