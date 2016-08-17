@@ -13,7 +13,8 @@ import (
 	goimports "golang.org/x/tools/imports"
 )
 
-// Options for the code generator
+// CodeGenOptions specifies the behaviour for the top-level code
+// generator
 type CodeGenOptions struct {
 	// Generate a complete source file, with package name and imports.
 	Complete bool
@@ -172,7 +173,7 @@ var ({{range $i, $ty := $function.Parameters}}
 
 /// ENTRY POINT
 
-// Generate code for the fuzzers.
+// CodeGen generate code for the fuzzers.
 func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer) (string, []error) {
 	var code string
 	var errs []error
@@ -266,9 +267,7 @@ func fixImports(options CodeGenOptions, code string) (string, error) {
 // takes a single `int`, the generated function signature looks like
 // this:
 //
-// ~~~go
-// FuzzTestStore(makeTest (func(int) Store), t *testing.T)
-// ~~~
+//   FuzzTestStore(makeTest (func(int) Store), t *testing.T)
 //
 // This test case will call `FuzzStore` (see
 // CodegenWithDefaultReference) with a max number of 100 operations.
@@ -284,9 +283,7 @@ func CodegenTestCase(fuzzer Fuzzer) (string, error) {
 // takes a single `int`, the generated function signature looks like
 // this:
 //
-// ~~~go
-// FuzzStore(makeTest (func(int) Store), rand *rand.Rand, maxops uint) error
-// ~~~
+//   FuzzStore(makeTest (func(int) Store), rand *rand.Rand, maxops uint) error
 //
 // This function will call `FuzzStoreWith` (see CodegenWithReference)
 // with the default reference.
@@ -301,9 +298,7 @@ func CodegenWithDefaultReference(fuzzer Fuzzer) (string, error) {
 // For an interface named `Store`, the generated function signature
 // looks like this:
 //
-// ~~~go
-// FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error
-// ~~~
+//   FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) error
 //
 // In any found discrepancies, the return value from the reference
 // `Store` (the first parameter) will be displayed as the "expected"
