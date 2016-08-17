@@ -182,7 +182,7 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 	}
 
 	codeGenErr := func(fuzzer Fuzzer, err error) error {
-		return fmt.Errorf("error occurred whilst generating code for '%s': %s.", fuzzer.Name, err)
+		return fmt.Errorf("error occurred whilst generating code for '%s': %s", fuzzer.Name, err)
 	}
 
 	for _, fuzzer := range fuzzers {
