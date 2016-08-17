@@ -16,9 +16,6 @@ import (
 // CodeGenOptions specifies the behaviour for the top-level code
 // generator
 type CodeGenOptions struct {
-	// Generate a complete source file, with package name and imports.
-	Complete bool
-
 	// The filename to use when automatically resolving
 	// imports. If unset by the command-line arguments, defaults
 	// to the filename of the source file.
@@ -28,6 +25,9 @@ type CodeGenOptions struct {
 	// command-line arguments, defaults to the package of the
 	// source file.
 	PackageName string
+
+	// Generate a complete source file, with package name and imports.
+	Complete bool
 
 	// Avoid generating the FuzzTest...(..., *testing.T) function.
 	NoTestCase bool

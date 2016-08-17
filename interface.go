@@ -136,7 +136,7 @@ func (ty *PointerType) ToString() string {
 
 // InterfacesFromAST extracts all interface declarations from the AST
 // of a file, as a map from names to interface decls.
-func InterfacesFromAST(theAST *ast.File) map[string][]Function {
+func InterfacesFromAST(theAST ast.Node) map[string][]Function {
 	if theAST == nil {
 		return nil
 	}
