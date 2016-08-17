@@ -495,11 +495,10 @@ func ParseType(s string) (Type, string, error) {
 				rest := strings.TrimLeftFunc(suff2, unicode.IsSpace)
 				qty := QualifiedType{Package: pkg, Type: &ty}
 				return &qty, rest, nil
-			} else {
-				basicTy := BasicType(pref)
-				rest := suff
-				return &basicTy, rest, nil
 			}
+			basicTy := BasicType(pref)
+			rest := suff
+			return &basicTy, rest, nil
 		}
 
 		return ParseType(noParens)
