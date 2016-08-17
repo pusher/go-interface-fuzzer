@@ -1,6 +1,7 @@
 package example
 
 import (
+	"errors"
 	"fmt"
 	"model"
 	"rand"
@@ -41,7 +42,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 		// Pick a random number between 0 and the number of methods of the interface. Then do that method on
 		// both, check for discrepancy, and bail out on error. Simple!
 
-		actionToPerform := rand.Intn(6)
+		actionToPerform := rand.Intn(7)
 
 		switch actionToPerform {
 		case 0:
@@ -110,6 +111,15 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			}
 		case 4:
 			// Call the method on both implementations
+			expectedInt := reference.NumEntries()
+			actualInt := test.NumEntries()
+
+			// And check for discrepancies.
+			if !reflect.DeepEqual(expectedInt, actualInt) {
+				return fmt.Errorf("inconsistent result in NumEntries\nexpected: %v\nactual:   %v", expectedInt, actualInt)
+			}
+		case 5:
+			// Call the method on both implementations
 			expectedModelIDMessage := reference.AsSlice()
 			actualModelIDMessage := test.AsSlice()
 
@@ -117,7 +127,7 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 			if !reflect.DeepEqual(expectedModelIDMessage, actualModelIDMessage) {
 				return fmt.Errorf("inconsistent result in AsSlice\nexpected: %v\nactual:   %v", expectedModelIDMessage, actualModelIDMessage)
 			}
-		case 5:
+		case 6:
 			// Call the method on both implementations
 			expectedInt := reference.MessageLimit()
 			actualInt := test.MessageLimit()
@@ -127,6 +137,11 @@ func FuzzStoreWith(reference Store, test Store, rand *rand.Rand, maxops uint) er
 				return fmt.Errorf("inconsistent result in MessageLimit\nexpected: %v\nactual:   %v", expectedInt, actualInt)
 			}
 		}
+
+		if !(reference.NumEntries() == len(reference.AsSlice())) {
+			return errors.New("invariant violated: %var.NumEntries() == len(%var.AsSlice())")
+		}
+
 	}
 
 	return nil

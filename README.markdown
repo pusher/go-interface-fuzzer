@@ -86,6 +86,19 @@ the same parameters to create a new value of the type under test.
   pointer, and so a reference must be made to it.
 
 
+`@invariant` specifies a property that must always hold. It is only
+checked for the test implementation, not the reference implementation.
+
+@invariant: %var.NumEntries() == len(%var.AsSlice())
+
+**Syntax:**
+
+  "Expression"
+
+  The property is a Go expression that evaluates to a boolean, with
+  `%var` replaced with the variable name.
+
+
 `@comparison` specifies a function to use to compare two values. If
 not specified the reflection package is used.
 
@@ -152,6 +165,7 @@ type Store interface {
     EntriesSinceIter(ID) (ID, *MessageIterator)
     MostRecentID() ID
     AsSlice() []IDMessage
+    NumEntries() int
     MessageLimit() int
 }
 ```

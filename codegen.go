@@ -129,13 +129,16 @@ func Fuzz{{$name}}With(reference {{$name}}, test {{$name}}, rand *rand.Rand, max
 			// Call the method on both implementations
 {{indent (makeFunCalls $fuzzer $function (printf "reference.%s" $function.Name) (printf "test.%s" $function.Name)) "\t\t\t"}}
 
-			// And check for discrepancies.{{range $j, $ty := $function.Returns}}
-{{$expected := expected $function $j}}
-{{$actual   := actual $function $j}}
+			// And check for discrepancies.{{range $j, $ty := $function.Returns}}{{$expected := expected $function $j}}{{$actual   := actual $function $j}}
 			if !{{printf (comparison $fuzzer $ty) $expected $actual}} {
 				return fmt.Errorf("inconsistent result in {{$function.Name}}\nexpected: %v\nactual:   %v", {{$expected}}, {{$actual}})
 			}{{end}}{{end}}
+		} {{range $i, $invariant := .Wanted.Invariants}}
+
+		if !({{sed $invariant "%var" "reference"}}) {
+			return errors.New("invariant violated: {{$invariant}}")
 		}
+{{end}}
 	}
 
 	return nil
@@ -445,6 +448,10 @@ func runTemplateWith(tplName, tpl string, fuzzer Fuzzer, overrides template.Func
 		"comparison": MakeValueComparison,
 		// Make a type generator
 		"makeTyGen": MakeTypeGenerator,
+		// Replace one string with another
+		"sed": func(s, old, new string) string {
+			return strings.Replace(s, old, new, -1)
+		},
 	}
 
 	for k, v := range overrides {

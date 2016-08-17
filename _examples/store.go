@@ -22,6 +22,8 @@ import (
 
 @known correct: & makeReferenceStore int
 
+@invariant: %var.NumEntries() == len(%var.AsSlice())
+
 @comparison: compareMessageIterators *MessageIterator
 
 @generator state: uint(0)
@@ -46,6 +48,9 @@ type Store interface {
 
 	// Returns the ID of the most recently inserted message.
 	MostRecentID() model.ID
+
+	// Returns the number of messages in the store.
+	NumEntries() int
 
 	// Returns all messages across all channels as a single slice,
 	// sorted by ID.

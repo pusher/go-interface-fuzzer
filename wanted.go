@@ -29,6 +29,9 @@ type WantedFuzzer struct {
 	// pointer.
 	ReturnsValue bool
 
+	// Invariant expressions.
+	Invariants []string
+
 	// Comparison functions to use. The keys of this map are
 	// ToString'd Types.
 	Comparison map[string]EitherFunctionOrMethod
@@ -161,6 +164,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 and mutate the wanted fuzzer; if not, skip over.
 
 SYNTAX: @known correct:   <parseKnownCorrect>
+      | @invariant:       <parseInvariant>
       | @comparison:      <parseComparison>
       | @generator:       <parseGenerator>
       | @generator state: <parseGeneratorState>
@@ -179,6 +183,17 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 		fundecl.Returns = []Type{&retty}
 		fuzzer.Reference = fundecl
 		fuzzer.ReturnsValue = returnsValue
+	}
+
+	// "@invariant:"
+	suff, ok = matchPrefix(line, "@invariant:")
+	if ok {
+		inv, err := ParseInvariant(suff)
+		if err != nil {
+			return err
+		}
+
+		fuzzer.Invariants = append(fuzzer.Invariants, inv)
 	}
 
 	// "@comparison:"
@@ -327,6 +342,20 @@ func ParseGenerator(line string) (Type, string, bool, error) {
 func ParseGeneratorState(line string) (string, error) {
 	if line == "" {
 		return "", fmt.Errorf("expected an initial state")
+	}
+
+	return line, nil
+}
+
+// Parse an "@invariant:"
+//
+// This does absolutely NO checking whatsoever beyond presence
+// checking!
+//
+// SYNTAX: Expression
+func ParseInvariant(line string) (string, error) {
+	if line == "" {
+		return "", fmt.Errorf("expected an expression")
 	}
 
 	return line, nil
