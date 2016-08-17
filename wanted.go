@@ -77,19 +77,19 @@ func WantedFuzzersFromAST(theAST *ast.File) (wanteds []WantedFuzzer, errs []erro
 	}
 
 	if theAST.Doc != nil {
-		wanted, err, logErr := WantedFuzzerFromCommentGroup(theAST.Doc)
+		wanted, err := WantedFuzzerFromCommentGroup(theAST.Doc)
 		if err == nil {
 			wanteds = append(wanteds, wanted...)
-		} else if logErr {
+		} else {
 			errs = append(errs, err)
 		}
 	}
 
 	for _, group := range theAST.Comments {
-		wanted, err, logErr := WantedFuzzerFromCommentGroup(group)
+		wanted, err := WantedFuzzerFromCommentGroup(group)
 		if err == nil {
 			wanteds = append(wanteds, wanted...)
-		} else if logErr {
+		} else {
 			errs = append(errs, err)
 		}
 	}
@@ -101,15 +101,12 @@ func WantedFuzzersFromAST(theAST *ast.File) (wanteds []WantedFuzzer, errs []erro
 // description from a comment group. The "@fuzz interface:" line
 // starts a new fuzzer definition; special comments in a group before
 // this are ignored.
-//
-// The boolean return indicates whether any fuzzers were found: if
-// not, the error isn't particularly meaningful.
-func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, error, bool) {
+func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, error) {
 	var fuzzers []WantedFuzzer
 	var fuzzer WantedFuzzer
 
 	if group == nil {
-		return fuzzers, errors.New("CommentGroup is nil"), false
+		return fuzzers, nil
 	}
 
 	// 'fuzzing' indicates whether we've found the start of a
@@ -135,7 +132,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 				if fuzzing {
 					// Found a new fuzzer! Add the old one to the list.
 					if fuzzer.Reference.Name == "" {
-						return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName), true
+						return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName)
 					}
 					fuzzers = append(fuzzers, fuzzer)
 
@@ -152,7 +149,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 			}
 
 			if err != nil {
-				return fuzzers, err, true
+				return fuzzers, err
 			}
 		}
 	}
@@ -160,12 +157,12 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 	if fuzzing {
 		// Add the final fuzzer to the list.
 		if fuzzer.Reference.Name == "" {
-			return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName), true
+			return fuzzers, fmt.Errorf("fuzzer declaration for %s missing '@known correct' line", fuzzer.InterfaceName)
 		}
-		return append(fuzzers, fuzzer), nil, false
+		return append(fuzzers, fuzzer), nil
 	}
 
-	return fuzzers, errors.New("no fuzzer found in group"), false
+	return fuzzers, nil
 }
 
 /* Parse a line in a comment. If this is a special comment, handle it
