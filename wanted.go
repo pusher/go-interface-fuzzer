@@ -121,7 +121,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 
 			var err error
 			if fuzzing {
-				err = ParseLine(line, &fuzzer)
+				err = parseLine(line, &fuzzer)
 			} else {
 				// "@fuzz interface:"
 				suff, ok := matchPrefix(line, "@fuzz interface:")
@@ -139,7 +139,7 @@ func WantedFuzzerFromCommentGroup(group *ast.CommentGroup) ([]WantedFuzzer, erro
 				}
 
 				var name string
-				name, err = ParseFuzzInterface(suff)
+				name, err = parseFuzzInterface(suff)
 				fuzzer = WantedFuzzer{
 					InterfaceName: name,
 					Comparison:    make(map[string]EitherFunctionOrMethod),
@@ -174,12 +174,11 @@ SYNTAX: @known correct:   <parseKnownCorrect>
       | @generator:       <parseGenerator>
       | @generator state: <parseGeneratorState>
 */
-
-func ParseLine(line string, fuzzer *WantedFuzzer) error {
+func parseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@known correct:"
 	suff, ok := matchPrefix(line, "@known correct:")
 	if ok {
-		fundecl, returnsValue, err := ParseKnownCorrect(suff)
+		fundecl, returnsValue, err := parseKnownCorrect(suff)
 		if err != nil {
 			return err
 		}
@@ -193,7 +192,7 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@invariant:"
 	suff, ok = matchPrefix(line, "@invariant:")
 	if ok {
-		inv, err := ParseInvariant(suff)
+		inv, err := parseInvariant(suff)
 		if err != nil {
 			return err
 		}
@@ -204,7 +203,7 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@comparison:"
 	suff, ok = matchPrefix(line, "@comparison:")
 	if ok {
-		tyname, fundecl, err := ParseComparison(suff)
+		tyname, fundecl, err := parseComparison(suff)
 		if err != nil {
 			return err
 		}
@@ -215,7 +214,7 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@generator:"
 	suff, ok = matchPrefix(line, "@generator:")
 	if ok {
-		tyname, genfunc, stateful, err := ParseGenerator(suff)
+		tyname, genfunc, stateful, err := parseGenerator(suff)
 		if err != nil {
 			return err
 		}
@@ -226,7 +225,7 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 	// "@generator state:"
 	suff, ok = matchPrefix(line, "@generator state:")
 	if ok {
-		state, err := ParseGeneratorState(suff)
+		state, err := parseGeneratorState(suff)
 		if err != nil {
 			return err
 		}
@@ -240,14 +239,14 @@ func ParseLine(line string, fuzzer *WantedFuzzer) error {
 // Parse a "@fuzz interface:"
 //
 // SYNTAX: Name
-func ParseFuzzInterface(line string) (string, error) {
+func parseFuzzInterface(line string) (string, error) {
 	var (
 		name string
 		err  error
 		rest string
 	)
 
-	name, rest = ParseName(line)
+	name, rest = parseName(line)
 
 	if name == "" {
 		err = fmt.Errorf("expected a name in '%s'", line)
@@ -261,7 +260,7 @@ func ParseFuzzInterface(line string) (string, error) {
 // Parse a "@known correct:"
 //
 // SYNTAX: [&] FunctionName [ArgType1 ... ArgTypeN]
-func ParseKnownCorrect(line string) (Function, bool, error) {
+func parseKnownCorrect(line string) (Function, bool, error) {
 	var function Function
 
 	if len(line) == 0 {
@@ -276,14 +275,14 @@ func ParseKnownCorrect(line string) (Function, bool, error) {
 		return function, false, errors.New("@known correct must have a function name")
 	}
 
-	function.Name, rest = ParseFunctionName(rest)
+	function.Name, rest = parseFunctionName(rest)
 
 	// [ArgType1 ... ArgTypeN]
 	var args []Type
 	for rest != "" {
 		var argty Type
 		var err error
-		argty, rest, err = ParseType(rest)
+		argty, rest, err = parseType(rest)
 
 		if err != nil {
 			return function, false, err
@@ -299,8 +298,8 @@ func ParseKnownCorrect(line string) (Function, bool, error) {
 // Parse a "@comparison:"
 //
 // SYNTAX: (Type:FunctionName | FunctionName Type)
-func ParseComparison(line string) (Type, EitherFunctionOrMethod, error) {
-	funcOrMeth, rest, err := ParseFunctionOrMethod(line)
+func parseComparison(line string) (Type, EitherFunctionOrMethod, error) {
+	funcOrMeth, rest, err := parseFunctionOrMethod(line)
 
 	if err != nil {
 		return nil, funcOrMeth, err
@@ -315,13 +314,13 @@ func ParseComparison(line string) (Type, EitherFunctionOrMethod, error) {
 // Parse a "@generator:"
 //
 // SYNTAX: [!] FunctionName Type
-func ParseGenerator(line string) (Type, string, bool, error) {
+func parseGenerator(line string) (Type, string, bool, error) {
 	// [!]
 	rest, stateful := matchPrefix(line, "!")
 
 	// FunctionName
 	var name string
-	name, rest = ParseFunctionName(rest)
+	name, rest = parseFunctionName(rest)
 
 	if name == "" {
 		return nil, name, stateful, fmt.Errorf("expected a name in '%s'", line)
@@ -329,7 +328,7 @@ func ParseGenerator(line string) (Type, string, bool, error) {
 
 	var err error
 	var ty Type
-	ty, rest, err = ParseType(rest)
+	ty, rest, err = parseType(rest)
 
 	if rest != "" {
 		err = fmt.Errorf("unexpected left over input in '%s' (got '%s')", line, rest)
@@ -344,7 +343,7 @@ func ParseGenerator(line string) (Type, string, bool, error) {
 // checking!
 //
 // SYNTAX: Expression
-func ParseGeneratorState(line string) (string, error) {
+func parseGeneratorState(line string) (string, error) {
 	if line == "" {
 		return "", fmt.Errorf("expected an initial state")
 	}
@@ -358,7 +357,7 @@ func ParseGeneratorState(line string) (string, error) {
 // checking!
 //
 // SYNTAX: Expression
-func ParseInvariant(line string) (string, error) {
+func parseInvariant(line string) (string, error) {
 	if line == "" {
 		return "", fmt.Errorf("expected an expression")
 	}
@@ -370,7 +369,7 @@ func ParseInvariant(line string) (string, error) {
 // string, which has leading spaces stripped.
 //
 // SYNTAX: (Type:FunctionName | FunctionName Type)
-func ParseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) {
+func parseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) {
 	var (
 		funcOrMeth EitherFunctionOrMethod
 		rest       string
@@ -383,17 +382,17 @@ func ParseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 	// name succeeds assume it's a function; and if neither succeed
 	// give an error.
 
-	tyType, tyRest, tyErr := ParseType(line)
-	nName, nRest := ParseFunctionName(line)
+	tyType, tyRest, tyErr := parseType(line)
+	nName, nRest := parseFunctionName(line)
 
 	if tyErr == nil && tyRest[0] == ':' {
 		// It's a method.
 		funcOrMeth.Type = tyType
-		funcOrMeth.Name, rest = ParseFunctionName(tyRest[1:])
+		funcOrMeth.Name, rest = parseFunctionName(tyRest[1:])
 	} else if nName != "" {
 		// It's a function
 		funcOrMeth.Name = nName
-		funcOrMeth.Type, rest, err = ParseType(nRest)
+		funcOrMeth.Type, rest, err = parseType(nRest)
 		funcOrMeth.IsFunction = true
 	} else {
 		err = fmt.Errorf("'%s' does not appear to be a method or function", line)
@@ -406,19 +405,19 @@ func ParseFunctionOrMethod(line string) (EitherFunctionOrMethod, string, error) 
 // has leading spaces stripped.
 //
 // SYNTAX: [ModuleName.].FunctionName
-func ParseFunctionName(line string) (string, string) {
+func parseFunctionName(line string) (string, string) {
 	var (
 		name string
 		rest string
 	)
 
 	// Parse a name and see if the next character is a '.'.
-	pref, suff := ParseName(line)
+	pref, suff := parseName(line)
 	suff = strings.TrimLeftFunc(suff, unicode.IsSpace)
 
 	if len(suff) > 0 && suff[0] == '.' {
 		modname := pref
-		funcname, suff2 := ParseName(suff[1:])
+		funcname, suff2 := parseName(suff[1:])
 		name = modname + "." + funcname
 		rest = strings.TrimLeftFunc(suff2, unicode.IsSpace)
 	} else {
@@ -434,7 +433,7 @@ func ParseFunctionName(line string) (string, string) {
 // be absolutely correct.
 //
 // SYNTAX: []Type | chan Type | map[Type]Type | *Type | (Type) | Name.Type | Name
-func ParseType(s string) (Type, string, error) {
+func parseType(s string) (Type, string, error) {
 	// Array type
 	suff, ok := matchPrefix(s, "[]")
 	if ok {
@@ -442,7 +441,7 @@ func ParseType(s string) (Type, string, error) {
 			ty := ArrayType{ElementType: t}
 			return &ty
 		}
-		return ParseUnaryType(tycon, suff, s)
+		return parseUnaryType(tycon, suff, s)
 	}
 
 	// Chan type
@@ -452,20 +451,20 @@ func ParseType(s string) (Type, string, error) {
 			ty := ChanType{ElementType: t}
 			return &ty
 		}
-		return ParseUnaryType(tycon, suff, s)
+		return parseUnaryType(tycon, suff, s)
 	}
 
 	// Map type
 	suff, ok = matchPrefix(s, "map[")
 	if ok {
-		keyTy, keyRest, keyErr := ParseType(suff)
+		keyTy, keyRest, keyErr := parseType(suff)
 		suff, ok = matchPrefix(keyRest, "]")
 		if ok && keyErr == nil {
 			tycon := func(t Type) Type {
 				ty := MapType{KeyType: keyTy, ValueType: t}
 				return &ty
 			}
-			return ParseUnaryType(tycon, keyRest[1:], s)
+			return parseUnaryType(tycon, keyRest[1:], s)
 		}
 		return nil, s, fmt.Errorf("Mismatched brackets in '%s'", s)
 	}
@@ -477,7 +476,7 @@ func ParseType(s string) (Type, string, error) {
 			ty := PointerType{TargetType: t}
 			return &ty
 		}
-		return ParseUnaryType(tycon, suff, s)
+		return parseUnaryType(tycon, suff, s)
 	}
 
 	// Type in (posibly 0) parentheses
@@ -485,12 +484,12 @@ func ParseType(s string) (Type, string, error) {
 	if parenOk {
 		// Basic type OR qualified type
 		if noParens == s {
-			pref, suff := ParseName(s)
+			pref, suff := parseName(s)
 			suff = strings.TrimLeftFunc(suff, unicode.IsSpace)
 
 			if len(suff) > 0 && suff[0] == '.' {
 				pkg := pref
-				tyname, suff2 := ParseName(suff[1:])
+				tyname, suff2 := parseName(suff[1:])
 				ty := BasicType(tyname)
 				rest := strings.TrimLeftFunc(suff2, unicode.IsSpace)
 				qty := QualifiedType{Package: pkg, Type: &ty}
@@ -501,7 +500,7 @@ func ParseType(s string) (Type, string, error) {
 			return &basicTy, rest, nil
 		}
 
-		return ParseType(noParens)
+		return parseType(noParens)
 	}
 
 	return nil, s, fmt.Errorf("mismatched parentheses in '%s'", s)
@@ -510,7 +509,7 @@ func ParseType(s string) (Type, string, error) {
 // Helper function for parsing a unary type operator: [], chan, or *.
 //
 // SYNTAX: Type
-func ParseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error) {
+func parseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error) {
 	var (
 		innerTy Type
 		rest    string
@@ -521,7 +520,7 @@ func ParseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error)
 	noParens, parenOk := matchDelims(noSpaces, "(", ")")
 
 	if parenOk {
-		innerTy, rest, err = ParseType(noParens)
+		innerTy, rest, err = parseType(noParens)
 	} else {
 		err = fmt.Errorf("mismatched parentheses in '%s'", orig)
 	}
@@ -532,7 +531,7 @@ func ParseUnaryType(tycon func(Type) Type, s, orig string) (Type, string, error)
 // Parse a name.
 //
 // SYNTAX: [a-zA-Z0-9_-]
-func ParseName(s string) (string, string) {
+func parseName(s string) (string, string) {
 	name, suff := takeWhileIn(s, "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_-")
 	rest := strings.TrimLeftFunc(suff, unicode.IsSpace)
 	return name, rest

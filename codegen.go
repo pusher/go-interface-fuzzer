@@ -178,7 +178,7 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 	var errs []error
 
 	if options.Complete {
-		code = GeneratePreamble(options.PackageName, imports)
+		code = generatePreamble(options.PackageName, imports)
 	}
 
 	codeGenErr := func(fuzzer Fuzzer, err error) error {
@@ -216,7 +216,7 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 		code = code + generated + "\n\n"
 	}
 
-	code, err := FixImports(options, code)
+	code, err := fixImports(options, code)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -224,33 +224,32 @@ func CodeGen(options CodeGenOptions, imports []*ast.ImportSpec, fuzzers []Fuzzer
 	return code, errs
 }
 
-// GeneratePreamble generates the header for a complete source file:
-// the package name and the imports. These imports may be both
-// overzealous (all imports from the source file are copied across)
-// and incomplete (imports the generated functions pull in aren't
-// added), so the FixImports function must be called after the full
-// code has been generated to fix this up.
-func GeneratePreamble(packagename string, imports []*ast.ImportSpec) string {
+// Generates the header for a complete source file: the package name
+// and the imports. These imports may be both overzealous (all imports
+// from the source file are copied across) and incomplete (imports the
+// generated functions pull in aren't added), so the FixImports
+// function must be called after the full code has been generated to
+// fix this up.
+func generatePreamble(packagename string, imports []*ast.ImportSpec) string {
 	preamble := "package " + packagename + "\n\n"
 
 	for _, iport := range imports {
-		preamble = preamble + GenerateImport(iport) + "\n"
+		preamble = preamble + generateImport(iport) + "\n"
 	}
 
 	return preamble + "\n"
 }
 
-// GenerateImport generates an import statement from an
-// *ast.ImportSpec.
-func GenerateImport(iport *ast.ImportSpec) string {
+// Generates an import statement from an *ast.ImportSpec.
+func generateImport(iport *ast.ImportSpec) string {
 	if iport.Name != nil {
 		return "import " + iport.Name.Name + " " + iport.Path.Value
 	}
 	return "import " + iport.Path.Value
 }
 
-// FixImports adds and removes imports with 'goimports'.
-func FixImports(options CodeGenOptions, code string) (string, error) {
+// Adds and removes imports with 'goimports'.
+func fixImports(options CodeGenOptions, code string) (string, error) {
 	if options.Complete {
 		cbytes, err := goimports.Process(options.Filename, []byte(code), nil)
 		return string(cbytes), err
@@ -320,7 +319,7 @@ func CodegenWithReference(fuzzer Fuzzer) (string, error) {
 //
 // Arguments are stored in variables arg0 ... argN. Return values in
 // variables reta0 ... retaN and retb0 ... retbN.
-func MakeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
+func makeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (string, error) {
 	funcs := template.FuncMap{
 		"function":     func(s string) Function { return function },
 		"expectedFunc": func(s string) string { return funcA },
@@ -334,7 +333,7 @@ func MakeFunctionCalls(fuzzer Fuzzer, function Function, funcA, funcB string) (s
 
 // Produce some code to populate a given variable with a random value
 // of the named type, assuming a PRNG called 'rand' is in scope.
-func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
+func makeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 	tyname := ty.ToString()
 
 	// If there's a provided generator, use that.
@@ -364,7 +363,7 @@ func MakeTypeGenerator(fuzzer Fuzzer, varname string, ty Type) (string, error) {
 
 // Produce a format string to compare two values of the same type.
 // given the variable names.
-func MakeValueComparison(fuzzer Fuzzer, ty Type) string {
+func makeValueComparison(fuzzer Fuzzer, ty Type) string {
 	tyname := ty.ToString()
 	comparison, ok := defaultComparisons[tyname]
 	if !ok {
@@ -421,33 +420,33 @@ func runTemplateWith(tplName, tpl string, fuzzer Fuzzer, overrides template.Func
 		"indent": indentLines,
 		// Argument names
 		"arguments": func(function Function) []string {
-			return FuncArgNames(function)
+			return funcArgNames(function)
 		},
 		"argument": func(function Function, i int) (string, error) {
-			return inSlice(FuncArgNames(function), i, "argument")
+			return inSlice(funcArgNames(function), i, "argument")
 		},
 		// Expected value names
-		"expecteds": func(function Function) []string { return FuncExpectedNames(function) },
+		"expecteds": func(function Function) []string { return funcExpectedNames(function) },
 		"expected": func(function Function, i int) (string, error) {
-			return inSlice(FuncExpectedNames(function), i, "result")
+			return inSlice(funcExpectedNames(function), i, "result")
 		},
 		// Actual value names
 		"actuals": func(function Function) []string {
-			return FuncActualNames(function)
+			return funcActualNames(function)
 		},
 		"actual": func(function Function, i int) (string, error) {
-			return inSlice(FuncActualNames(function), i, "result")
+			return inSlice(funcActualNames(function), i, "result")
 		},
 		// Render a type as a string
 		"toString": func(ty Type) string {
 			return ty.ToString()
 		},
 		// Make a function call
-		"makeFunCalls": MakeFunctionCalls,
+		"makeFunCalls": makeFunctionCalls,
 		// Make a value comparison
-		"comparison": MakeValueComparison,
+		"comparison": makeValueComparison,
 		// Make a type generator
-		"makeTyGen": MakeTypeGenerator,
+		"makeTyGen": makeTypeGenerator,
 		// Replace one string with another
 		"sed": func(s, old, new string) string {
 			return strings.Replace(s, old, new, -1)
@@ -480,30 +479,30 @@ func inSlice(ss []string, i int, name string) (string, error) {
 
 // Produce unique variable names for function arguments. These do not
 // clash with names produced by funcExpectedNames or funcActualNames.
-func FuncArgNames(function Function) []string {
-	return TypeListNames("arg", function.Parameters)
+func funcArgNames(function Function) []string {
+	return typeListNames("arg", function.Parameters)
 }
 
 // Produce unique variable names for actual function returns. These do
 // not clash with names produced by funcArgNames or funcExpectedNames.
-func FuncActualNames(function Function) []string {
-	return TypeListNames("actual", function.Returns)
+func funcActualNames(function Function) []string {
+	return typeListNames("actual", function.Returns)
 }
 
 // Produce unique variable names for expected function returns. These
 // do not clash with names produced by funcArgNames or
 // funcActualNames.
-func FuncExpectedNames(function Function) []string {
-	return TypeListNames("expected", function.Returns)
+func funcExpectedNames(function Function) []string {
+	return typeListNames("expected", function.Returns)
 }
 
 // Produce names for variables given a list of types.
-func TypeListNames(prefix string, tylist []Type) []string {
+func typeListNames(prefix string, tylist []Type) []string {
 	var names []string
 
 	for i, ty := range tylist {
 		// Generate a name for this variable based on the type.
-		name := TypeNameToVarName(prefix, ty)
+		name := typeNameToVarName(prefix, ty)
 		for _, prior := range names {
 			if name == prior {
 				name = name + strconv.Itoa(i)
@@ -517,7 +516,7 @@ func TypeListNames(prefix string, tylist []Type) []string {
 }
 
 // Produce a (possibly not unique) variable name from a type name.
-func TypeNameToVarName(pref string, ty Type) string {
+func typeNameToVarName(pref string, ty Type) string {
 	name := filter(ty.ToString(), unicode.IsLetter)
 
 	// More pleasing capitalisation.
