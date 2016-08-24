@@ -205,7 +205,7 @@ default; and report an error otherwise.
 
 **Example:** `@generator: GenerateChannel model.Channel`
 
-**Argument syntax:** `"[!] FunctionName Type`
+**Argument syntax:** `[!] FunctionName Type`
 
 The presence of a `!` means that this is a stateful function: it is
 also passed a state parameter and is expected to return a new state as
