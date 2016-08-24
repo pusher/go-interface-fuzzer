@@ -3,7 +3,7 @@
 </p>
 
 
-Go Interface Fuzzer is a fuzzy testing tool for Go interfaces. The
+Go Interface Fuzzer is a fuzzy testing tool for Go interfaces used [@Pusher](https://github.com/pusher). The
 goal of the project is to make it easier for developers to have
 confidence in the correctness of their programs by combining
 randomised testing with reference semantics.
