@@ -1,5 +1,7 @@
-go-interface-fuzzer
-===
+<p align="center">
+  <img width="600" src="media/logo.png"/>
+</p>
+
 
 `go-interface-fuzzer` is a fuzzy testing tool for Go interfaces. The
 goal of the project is to make it easier for developers to have
