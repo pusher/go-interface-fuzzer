@@ -12,7 +12,7 @@ to generate function parameters and compare function return values,
 used to check that the behaviour of an arbitrary other type
 implementing the interface behaves the same.
 
-See the `_examples` directory for a complete self-contained example.
+See the [`_examples` directory](https://github.com/pusher/go-interface-fuzzer/tree/master/_examples) for a complete self-contained example.
 
 ## Table of Contents
 
