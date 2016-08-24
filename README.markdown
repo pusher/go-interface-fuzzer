@@ -3,14 +3,14 @@
 </p>
 
 
-`go-interface-fuzzer` is a fuzzy testing tool for Go interfaces. The
+Go Interface Fuzzer is a fuzzy testing tool for Go interfaces. The
 goal of the project is to make it easier for developers to have
 confidence in the correctness of their programs by combining
 randomised testing with reference semantics.
 
 Given an interface, a reference implementation, and some hints on how
 to generate function parameters and compare function return values,
-`go-interface-fuzzer` will generate testing functions which can be
+Go Interface Fuzzer will generate testing functions which can be
 used to check that the behaviour of an arbitrary other type
 implementing the interface behaves the same.
 
@@ -44,7 +44,7 @@ usages will not suddenly stop working.
 
 ### Installing
 
-To start using `go-interface-fuzzer`, install Go and run `go get`:
+To start using Go Interface Fuzzer, install Go and run `go get`:
 
 ```sh
 $ go get github.com/pusher/go-interface-fuzzer
@@ -90,7 +90,7 @@ With the example file, the following functions are be produced:
    A test case parameterised by the store generating function, with a
    default maxops of 100.
 
-By default `go-interface-fuzzer` generates an incomplete fragment: no
+By default Go Interface Fuzzer generates an incomplete fragment: no
 package name, no imports, just the three testing functions per
 interface.
 
@@ -262,7 +262,7 @@ overridden:
 ## Other Uses
 ### Regression testing
 
-Although the motivating use-case for `go-interface-fuzzer` was an
+Although the motivating use-case for Go Interface Fuzzer was an
 interface with two implementations that should have identical
 behaviour, there is nothing preventing the use of multiple *versions*
 of the *same* implementation. This facilitates regression testing,
